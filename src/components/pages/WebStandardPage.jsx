@@ -128,8 +128,16 @@ function CssResult({ validation, onToggle, onOpenLightbox }) {
     );
   }
   if (validation.error) return <div className="audit-w3c-fetch-error">CSS 검사 실패: {validation.error}</div>;
+  if (validation.cssValidatorUrl) return (
+    <div className="audit-w3c-fetch-error">
+      CSS 검사기 서버 접근이 차단되었습니다.&nbsp;
+      <a href={validation.cssValidatorUrl} target="_blank" rel="noopener noreferrer" style={{color:'#2563eb',textDecoration:'underline'}}>
+        W3C CSS 검사기에서 직접 확인 →
+      </a>
+    </div>
+  );
 
-  const { errors = [], warnings = [], errorCount = 0, warningCount = 0, cssScreenshot } = validation;
+  const { errors = [], warnings = [], errorCount = 0, warningCount = 0, cssScreenshot, cssValidatorUrl } = validation;
   return (
     <div className="audit-w3c-result">
       <button className="audit-w3c-summary" onClick={onToggle}>
@@ -315,7 +323,7 @@ export default function WebStandardPage() {
       setCssValidations(prev => ({
         ...prev,
         [urlItem.id]: cssResult.status === 'fulfilled'
-          ? { loading: false, errors: cssResult.value.errors ?? [], warnings: cssResult.value.warnings ?? [], errorCount: cssResult.value.errorCount ?? 0, warningCount: cssResult.value.warningCount ?? 0, cssScreenshot: cssResult.value.cssScreenshot ?? null, error: null, open: false }
+          ? { loading: false, errors: cssResult.value.errors ?? [], warnings: cssResult.value.warnings ?? [], errorCount: cssResult.value.errorCount ?? 0, warningCount: cssResult.value.warningCount ?? 0, cssScreenshot: cssResult.value.cssScreenshot ?? null, cssValidatorUrl: cssResult.value.cssValidatorUrl ?? null, error: null, open: false }
           : { loading: false, errors: [], warnings: [], error: cssResult.reason.message, open: false },
       }));
 
