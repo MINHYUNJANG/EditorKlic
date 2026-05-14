@@ -1,5 +1,4 @@
-import path from 'path';
-import fs from 'fs';
+import { put } from '@vercel/blob';
 import {
   figmaAccurateMarkup,
   parseFigmaUrl,
@@ -56,7 +55,8 @@ async function fetchExportUrls(fileKey, nodeIds) {
   }
 }
 
-async function saveImageToTmp(cdnUrl, filePath) {
+// Figma CDN에서 이미지를 받아 Vercel Blob에 업로드 후 CDN URL 반환
+async function saveImageToBlob(cdnUrl, blobPath) {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 20000);
@@ -65,26 +65,17 @@ async function saveImageToTmp(cdnUrl, filePath) {
     if (!resp.ok) return null;
     const ct = resp.headers.get('content-type') || '';
     const ext = ct.includes('jpeg') ? 'jpg' : ct.includes('webp') ? 'webp' : 'png';
-    const finalPath = filePath.replace(/\.\w+$/, '') + '.' + ext;
-    fs.writeFileSync(finalPath, Buffer.from(await resp.arrayBuffer()));
-    return finalPath;
+    const finalPath = blobPath.replace(/\.\w+$/, '') + '.' + ext;
+    const buffer = Buffer.from(await resp.arrayBuffer());
+    const { url } = await put(finalPath, buffer, {
+      access: 'public',
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+    });
+    return { url, fileName: finalPath.split('/').pop() };
   } catch (e) {
-    console.warn('[이미지 저장 실패]', e.message);
+    console.warn('[이미지 Blob 저장 실패]', e.message);
     return null;
   }
-}
-
-// Vercel 배포 환경이면 /tmp, 로컬이면 public/figma-markup에 저장
-const IS_VERCEL = !!process.env.VERCEL;
-
-function getImgDir(safeName) {
-  if (IS_VERCEL) return path.join('/tmp', 'figma-markup', safeName, 'images');
-  return path.join(process.cwd(), 'public', 'figma-markup', safeName, 'images');
-}
-
-function getImagePublicPath(safeName, fileName) {
-  if (IS_VERCEL) return `/api/figma-image?path=${encodeURIComponent(`${safeName}/images/${fileName}`)}`;
-  return `/figma-markup/${safeName}/images/${fileName}`;
 }
 
 export default async function handler(req, res) {
@@ -93,16 +84,13 @@ export default async function handler(req, res) {
     const { url, markup_type = 'html', project_name = '' } = req.body;
     if (!url) return res.status(400).json({ detail: 'Figma URL이 필요합니다.' });
 
-    // project_name 없으면 기존 방식 (파일 저장 없음)
+    // project_name 없으면 기존 방식 (이미지 저장 없음)
     if (!project_name.trim()) {
       const result = await withTimeout(figmaAccurateMarkup(url, markup_type));
       return res.json(result);
     }
 
-    // ── 프로젝트 폴더 생성 (/tmp 사용) ────────────────────────
     const safeName = project_name.trim().replace(/[\\/:*?"<>|]/g, '_');
-    const imgFolderPath = getImgDir(safeName);
-    fs.mkdirSync(imgFolderPath, { recursive: true });
 
     // ── Figma 노드 ID 파악 ────────────────────────────────────
     const [fileKey, nodeId] = parseFigmaUrl(url);
@@ -134,19 +122,18 @@ export default async function handler(req, res) {
       const bgImageUrls = {};
       const refCache = {};
 
-      // ① 벡터 일러스트 그룹 → Figma export PNG
+      // ① 벡터 일러스트 그룹 → Figma export PNG → Blob 업로드
       const illNodeIds = collectIllustrationNodeIds(nodeData);
       if (illNodeIds.length > 0) {
         const exportUrls = await fetchExportUrls(fileKey, illNodeIds);
         const downloadTasks = illNodeIds
           .filter(id => exportUrls[id])
           .map(async (id) => {
-            const basePath = path.join(imgFolderPath, `img_${String(++imgIdx).padStart(2, '0')}`);
-            const savedPath = await saveImageToTmp(exportUrls[id], basePath);
-            if (savedPath) {
-              const fileName = path.basename(savedPath);
-              imageNodeMap[id] = getImagePublicPath(safeName, fileName);
-              return fileName;
+            const blobPath = `figma-markup/${safeName}/images/img_${String(++imgIdx).padStart(2, '0')}`;
+            const saved = await saveImageToBlob(exportUrls[id], blobPath);
+            if (saved) {
+              imageNodeMap[id] = saved.url;
+              return saved.fileName;
             }
             return null;
           });
@@ -154,19 +141,17 @@ export default async function handler(req, res) {
         settled.forEach(r => { if (r.status === 'fulfilled' && r.value) savedImages.push(r.value); });
       }
 
-      // ② IMAGE fill 노드 → CDN 원본 이미지 다운로드
+      // ② IMAGE fill 노드 → CDN 원본 이미지 → Blob 업로드
       const fillNodes = collectImageFillNodes(nodeData, [], new Set(illNodeIds));
       const fillTasks = fillNodes
         .filter(fn => allCdnUrls[fn.ref] && !refCache[fn.ref])
         .map(async (fn) => {
-          const basePath = path.join(imgFolderPath, `img_${String(++imgIdx).padStart(2, '0')}`);
-          const savedPath = await saveImageToTmp(allCdnUrls[fn.ref], basePath);
-          if (savedPath) {
-            const fileName = path.basename(savedPath);
-            const apiPath = getImagePublicPath(safeName, fileName);
-            refCache[fn.ref] = apiPath;
-            bgImageUrls[fn.ref] = apiPath;
-            return { fn, apiPath, fileName };
+          const blobPath = `figma-markup/${safeName}/images/img_${String(++imgIdx).padStart(2, '0')}`;
+          const saved = await saveImageToBlob(allCdnUrls[fn.ref], blobPath);
+          if (saved) {
+            refCache[fn.ref] = saved.url;
+            bgImageUrls[fn.ref] = saved.url;
+            return { fn, blobUrl: saved.url, fileName: saved.fileName };
           }
           return null;
         });
@@ -174,10 +159,10 @@ export default async function handler(req, res) {
       const fillSettled = await Promise.allSettled(fillTasks);
       fillSettled.forEach(r => {
         if (r.status === 'fulfilled' && r.value) {
-          const { fn, apiPath, fileName } = r.value;
+          const { fn, blobUrl, fileName } = r.value;
           savedImages.push(fileName);
-          if (fn.isPure) imageNodeMap[fn.id] = apiPath;
-          bgImageUrls[fn.ref] = apiPath;
+          if (fn.isPure) imageNodeMap[fn.id] = blobUrl;
+          bgImageUrls[fn.ref] = blobUrl;
         }
       });
 
@@ -188,7 +173,7 @@ export default async function handler(req, res) {
         }
       });
 
-      // ③ 마크업 변환
+      // ③ 마크업 변환 (imageNodeMap, bgImageUrls에 Blob CDN URL이 담김)
       const result = convertFigmaNode(nodeData, markup_type, bgImageUrls, new Set(), imageNodeMap);
 
       if (markup_type === 'react') {
