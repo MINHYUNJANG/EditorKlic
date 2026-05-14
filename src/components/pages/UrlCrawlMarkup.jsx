@@ -258,7 +258,7 @@ export default function UrlCrawlMarkup() {
         <div className="page-how-to">
           <div className="page-how-to-copy">
             <span className="ai-intro-kicker">사용방법</span>
-            <h3>URL을 붙여넣으면 본문을 자동 크롤링해 마크업을 즉시 생성합니다</h3>
+            <h3>복사하고자하는 학교의 URL을 붙여넣으면 본문을 자동 크롤링해 KLIC 스타일의 마크업을 즉시 생성합니다</h3>
             <p>
               default는 단일 모드로 단일모드에서는 복사할 학교의 URL을 붙여넣으면 결과를 바로 확인하고 수정할 수 있습니다.<br />
               일괄 URL을 체크하면 해당 URL의 사이트맵을 찾아 여러 URL을 한 번에 처리하며, 탭(Tab)으로 구분해서 각 페이지에 맞는 마크업을 한꺼번에 생성합니다.<br />
