@@ -254,6 +254,19 @@ export default function UrlCrawlMarkup() {
         <h2 className="crawl-title">URL 크롤링 마크업</h2>
         <p className="crawl-desc">URL을 입력하면 본문을 자동으로 크롤링하여 마크업을 생성합니다.</p>
 
+        <div className="page-how-to">
+          <div className="page-how-to-copy">
+            <span className="ai-intro-kicker">사용방법</span>
+            <h3>URL을 붙여넣으면 본문을 자동 크롤링해 마크업을 즉시 생성합니다</h3>
+            <p>
+              단일 모드에서는 URL 하나를 입력해 결과를 바로 확인하고 수정할 수 있습니다.
+              일괄 모드에서는 여러 URL을 한 번에 처리하며, 탭(Tab)으로 구분된 URL과 타이틀을 함께 입력하면
+              각 페이지에 맞는 마크업을 한꺼번에 생성합니다.
+              결과는 코드 보기·미리보기로 확인하고 복사하거나 수정해 바로 활용하세요.
+            </p>
+          </div>
+        </div>
+
         {/* 일괄 모드 토글 */}
         <label className="crawl-batch-toggle">
           <input type="checkbox" checked={batchMode} onChange={e => setBatchMode(e.target.checked)} />

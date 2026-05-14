@@ -320,6 +320,18 @@ export default function BatchMarkupPage() {
         <p className="crawl-desc" style={{ margin: 0 }}>
           학교명과 URL을 붙여넣으면 선택한 템플릿에 내용을 자동으로 적용합니다.
         </p>
+        <div className="page-how-to">
+          <div className="page-how-to-copy">
+            <span className="ai-intro-kicker">사용방법</span>
+            <h3>학교명과 URL을 입력하고 템플릿을 선택하면 콘텐츠를 자동으로 적용합니다</h3>
+            <p>
+              왼쪽에서 카테고리와 템플릿을 선택한 뒤, 오른쪽 입력창에 학교명과 URL을 한 줄씩 붙여넣으세요.
+              탭(Tab)으로 학교명과 URL을 구분하며, 여러 학교를 한 번에 처리할 수 있습니다.
+              <strong>생성</strong> 버튼을 누르면 각 URL의 콘텐츠를 크롤링해 선택한 템플릿에 자동 적용하고,
+              결과를 목록에서 확인하거나 복사해 바로 사용할 수 있습니다.
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* ─── 하단 2단 ─── */}
