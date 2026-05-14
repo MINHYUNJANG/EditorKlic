@@ -150,7 +150,7 @@ ${htmlResult}
       <div className="figma-header">
         <h2 className="crawl-title">피그마 마크업</h2>
         <p className="crawl-desc">Figma URL의 프레임을 분석해 HTML/CSS 또는 React/CSS 마크업을 생성합니다.</p>
-        <div className="page-how-to">
+        <div className="page-how-to" style={{ marginBottom: 0 }}>
           <div className="page-how-to-copy">
             <span className="ai-intro-kicker">사용방법</span>
             <h3>Figma 디자인 URL을 붙여넣으면 프레임을 분석해 마크업 코드를 자동 생성합니다</h3>
