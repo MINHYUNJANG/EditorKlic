@@ -23,24 +23,62 @@
 
 .ai-intro-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 1.5rem;
-  align-items: stretch;
+  align-items: center;
   padding: 1.75rem;
   background: #f7fbff;
   border: 0.0625rem solid #d7e8f8;
 }
 
+.ai-intro-hero-left {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.ai-intro-hero-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ai-intro-hero-image img {
+  width: 100%;
+  max-width: 36rem;
+  height: auto;
+  border: 0.0625rem solid #d7e8f8;
+  box-shadow: 0 0.25rem 1.5rem rgba(13, 148, 136, 0.08);
+}
+
 .ai-intro-hero-copy {
-  width:100%;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  align-items: center;
   gap: 0.75rem;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
+}
+
+.ai-intro-season-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.ai-intro-season-label {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #667085;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ai-intro-season-preview img {
+  width: 100%;
+  height: auto;
+  border: 0.0625rem solid #e4e8ef;
+  box-shadow: 0 0.125rem 0.75rem rgba(0,0,0,0.06);
 }
 
 .ai-intro-kicker,
@@ -324,6 +362,10 @@
   .ai-intro-hero,
   .ai-intro-section--split {
     grid-template-columns: 1fr;
+  }
+
+  .ai-intro-hero-image img {
+    max-width: 100%;
   }
 
   .ai-intro-feature-grid {

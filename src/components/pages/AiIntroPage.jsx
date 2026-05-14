@@ -45,27 +45,32 @@ export default function AiIntroPage() {
 
       <section className="ai-intro-content">
         <div className="ai-intro-hero">
-          <div className="ai-intro-hero-copy">
-            <span className="ai-intro-kicker">기획 방향</span>
-            <h3>학교 홈페이지를 필요한 정보를 바로 찾는 사용자 중심 인트로로 전환</h3>
-            <p>
-              복잡한 메뉴 구조와 반복 문의를 줄이고, 학부모와 학생이 메인 화면에서 질문, 바로가기,
-              행사 안내, 시즌 스킨을 한 번에 이용할 수 있도록 구성합니다.
-            </p>
+          <div className="ai-intro-hero-left">
+            <div className="ai-intro-hero-copy">
+              <span className="ai-intro-kicker">기획 방향</span>
+              <h3>학교 홈페이지를 필요한 정보를 바로 찾는 사용자 중심 인트로로 전환</h3>
+              <p>
+                복잡한 메뉴 구조와 반복 문의를 줄이고, 학부모와 학생이 메인 화면에서 질문, 바로가기,
+                행사 안내, 시즌 스킨을 한 번에 이용할 수 있도록 구성합니다.
+              </p>
+            </div>
+            <div className="ai-intro-flow" aria-label="AI 인트로 처리 흐름">
+              <div>
+                <strong>질문 입력</strong>
+                <span>자연어 검색</span>
+              </div>
+              <div>
+                <strong>AI 분석</strong>
+                <span>메뉴·공지 매칭</span>
+              </div>
+              <div>
+                <strong>즉시 안내</strong>
+                <span>답변·페이지 이동</span>
+              </div>
+            </div>
           </div>
-          <div className="ai-intro-flow" aria-label="AI 인트로 처리 흐름">
-            <div>
-              <strong>질문 입력</strong>
-              <span>자연어 검색</span>
-            </div>
-            <div>
-              <strong>AI 분석</strong>
-              <span>메뉴·공지 매칭</span>
-            </div>
-            <div>
-              <strong>즉시 안내</strong>
-              <span>답변·페이지 이동</span>
-            </div>
+          <div className="ai-intro-hero-image">
+            <img src="/ai_intro.png" alt="AI 인트로 메인 화면 목업" />
           </div>
         </div>
 
@@ -120,6 +125,10 @@ export default function AiIntroPage() {
                 </div>
               </article>
             ))}
+          </div>
+          <div className="ai-intro-season-preview">
+            <p className="ai-intro-season-label">시즌·날씨별 스킨 미리보기</p>
+            <img src="/ai_weat.png" alt="봄·여름·가을·겨울 시즌 스킨 4종" />
           </div>
         </div>
 
