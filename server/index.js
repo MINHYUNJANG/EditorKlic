@@ -124,7 +124,7 @@ async function fetchExportUrls(fileKey, nodeIds) {
   }
 }
 
-async function saveImage(cdnUrl, filePath) {
+async function saveImage(cdnUrl, blobPath) {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 20000);
@@ -133,11 +133,16 @@ async function saveImage(cdnUrl, filePath) {
     if (!resp.ok) return null;
     const ct = resp.headers.get('content-type') || '';
     const ext = ct.includes('jpeg') ? 'jpg' : ct.includes('webp') ? 'webp' : 'png';
-    const finalPath = filePath.replace(/\.\w+$/, '') + '.' + ext;
-    fs.writeFileSync(finalPath, Buffer.from(await resp.arrayBuffer()));
-    return finalPath;
+    const finalPath = blobPath.replace(/\.\w+$/, '') + '.' + ext;
+    const buffer = Buffer.from(await resp.arrayBuffer());
+    const { put } = await import('@vercel/blob');
+    const { url } = await put(finalPath, buffer, {
+      access: 'public',
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+    });
+    return { url, fileName: finalPath.split('/').pop() };
   } catch (e) {
-    console.warn('[이미지 저장 실패]', e.message);
+    console.warn('[이미지 Blob 저장 실패]', e.message);
     return null;
   }
 }
@@ -155,11 +160,7 @@ app.post('/api/figma-accurate', async (req, res) => {
       return res.json(result);
     }
 
-    // ── 프로젝트 폴더 생성 ──────────────────────────────────────────────────
     const safeName = project_name.trim().replace(/[\\/:*?"<>|]/g, '_');
-    const folderPath = path.join(process.cwd(), 'public', 'figma-markup', safeName);
-    const imgFolderPath = path.join(folderPath, 'images');
-    fs.mkdirSync(imgFolderPath, { recursive: true });
 
     // ── Figma 노드 ID 파악 ────────────────────────────────────────────────
     const [fileKey, nodeId] = parseFigmaUrl(url);
@@ -198,12 +199,11 @@ app.post('/api/figma-accurate', async (req, res) => {
         const downloadTasks = illNodeIds
           .filter(id => exportUrls[id])
           .map(async (id) => {
-            const basePath = path.join(imgFolderPath, `img_${String(++imgIdx).padStart(2, '0')}`);
-            const savedPath = await saveImage(exportUrls[id], basePath);
-            if (savedPath) {
-              const fileName = path.basename(savedPath);
-              imageNodeMap[id] = `/figma-markup/${safeName}/images/${fileName}`;
-              return fileName;
+            const blobPath = `figma-markup/${safeName}/images/img_${String(++imgIdx).padStart(2, '0')}`;
+            const saved = await saveImage(exportUrls[id], blobPath);
+            if (saved) {
+              imageNodeMap[id] = saved.url;
+              return saved.fileName;
             }
             return null;
           });
@@ -216,14 +216,12 @@ app.post('/api/figma-accurate', async (req, res) => {
       const fillTasks = fillNodes
         .filter(fn => allCdnUrls[fn.ref] && !refCache[fn.ref])
         .map(async (fn) => {
-          const basePath = path.join(imgFolderPath, `img_${String(++imgIdx).padStart(2, '0')}`);
-          const savedPath = await saveImage(allCdnUrls[fn.ref], basePath);
-          if (savedPath) {
-            const fileName = path.basename(savedPath);
-            const localPath = `/figma-markup/${safeName}/images/${fileName}`;
-            refCache[fn.ref] = localPath;
-            bgImageUrls[fn.ref] = localPath;
-            return { fn, localPath, fileName };
+          const blobPath = `figma-markup/${safeName}/images/img_${String(++imgIdx).padStart(2, '0')}`;
+          const saved = await saveImage(allCdnUrls[fn.ref], blobPath);
+          if (saved) {
+            refCache[fn.ref] = saved.url;
+            bgImageUrls[fn.ref] = saved.url;
+            return { fn, blobUrl: saved.url, fileName: saved.fileName };
           }
           return null;
         });
@@ -231,10 +229,10 @@ app.post('/api/figma-accurate', async (req, res) => {
       const fillSettled = await Promise.allSettled(fillTasks);
       fillSettled.forEach(r => {
         if (r.status === 'fulfilled' && r.value) {
-          const { fn, localPath, fileName } = r.value;
+          const { fn, blobUrl, fileName } = r.value;
           savedImages.push(fileName);
-          if (fn.isPure) imageNodeMap[fn.id] = localPath;
-          bgImageUrls[fn.ref] = localPath;
+          if (fn.isPure) imageNodeMap[fn.id] = blobUrl;
+          bgImageUrls[fn.ref] = blobUrl;
         }
       });
 
