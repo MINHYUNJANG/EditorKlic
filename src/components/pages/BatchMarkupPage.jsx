@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import HowToTooltip from '../HowToTooltip';
 import { formatHtml } from '../../utils/formatHtml';
 import greeting from '../../templates/greeting';
 import history from '../../templates/history';
@@ -321,12 +320,16 @@ export default function BatchMarkupPage() {
         <p className="crawl-desc">
           학교명과 URL을 붙여넣으면 선택한 템플릿에 내용을 자동으로 적용합니다.
         </p>
-        <HowToTooltip heading="학교 URL을 입력하고 템플릿을 선택하면 콘텐츠 마크업을 자동 적용합니다">
-          <p>
-            왼쪽에서 카테고리와 템플릿을 선택한 뒤, 오른쪽 입력창에 URL을 붙여넣고 마크업 적용을 시작하면 바로 적용되는 화면을 확인할 수 있습니다.<br />
-            적용된 화면에서 마크업을 바로 확인 및 수정할 수 있고 복사도 가능합니다.
-          </p>
-        </HowToTooltip>
+        <div className="page-how-to" style={{ marginBottom: 0 }}>
+          <div className="page-how-to-copy">
+            <span className="ai-intro-kicker">사용방법</span>
+            <h3>학교 URL을 입력하고 템플릿을 선택하면 콘텐츠 마크업을 자동 적용합니다</h3>
+            <p>
+              왼쪽에서 카테고리와 템플릿을 선택한 뒤, 오른쪽 입력창에 URL을 붙여넣고 마크업 적용을 시작하면 바로 적용되는 화면을 확인할 수 있습니다.<br />
+              적용된 화면에서 마크업을 바로 확인 및 수정할 수 있고 복사도 가능합니다.
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* ─── 하단 2단 ─── */}

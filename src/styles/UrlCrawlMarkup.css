@@ -1,65 +1,3 @@
-/* ─── HowToTooltip 공용 ─────────────────────────────────────── */
-.how-to-tooltip-wrap {
-  position: absolute;
-  top: 1.75rem;
-  right: 1.5rem;
-  z-index: 10;
-}
-
-.how-to-tooltip-btn {
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 50%;
-  background: #0d9488;
-  color: #fff;
-  border: none;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 700;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s;
-}
-
-.how-to-tooltip-btn:hover {
-  background: #0f766e;
-}
-
-.how-to-tooltip-box {
-  display: none;
-  position: absolute;
-  top: calc(100% + 0.5rem);
-  right: 0;
-  width: 23rem;
-  padding: 1.25rem;
-  background: #f7fbff;
-  border: 0.0625rem solid #d7e8f8;
-  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.12);
-  flex-direction: column;
-  gap: 0.6rem;
-}
-
-.how-to-tooltip-wrap:hover .how-to-tooltip-box {
-  display: flex;
-}
-
-.how-to-tooltip-heading {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: #14213d;
-  line-height: 1.45;
-}
-
-.how-to-tooltip-box p {
-  margin: 0;
-  font-size: 0.85rem;
-  color: #5a6472;
-  line-height: 1.75;
-}
-
-/* ─────────────────────────────────────────────────────────── */
 .crawl-page {
   flex: 1;
   min-height: 0;
@@ -70,7 +8,6 @@
 }
 
 .crawl-page-inner {
-  position: relative;
   flex: 1;
   max-width: 100rem;
   width: 100%;
