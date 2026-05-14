@@ -1,4 +1,4 @@
-import { put } from '@vercel/blob';
+import { put, list, del } from '@vercel/blob';
 import {
   figmaAccurateMarkup,
   parseFigmaUrl,
@@ -55,6 +55,23 @@ async function fetchExportUrls(fileKey, nodeIds) {
   }
 }
 
+// 기존 Blob 이미지 전체 삭제
+async function clearAllBlobs() {
+  try {
+    let cursor;
+    const urls = [];
+    do {
+      const result = await list({ prefix: 'figma-markup/', cursor, limit: 1000, token: process.env.BLOB_READ_WRITE_TOKEN });
+      urls.push(...result.blobs.map(b => b.url));
+      cursor = result.cursor;
+      if (!result.hasMore) break;
+    } while (cursor);
+    if (urls.length > 0) await del(urls, { token: process.env.BLOB_READ_WRITE_TOKEN });
+  } catch (e) {
+    console.warn('[Blob 정리 실패]', e.message);
+  }
+}
+
 // Figma CDN에서 이미지를 받아 Vercel Blob에 업로드 후 CDN URL 반환
 async function saveImageToBlob(cdnUrl, blobPath) {
   try {
@@ -105,8 +122,12 @@ export default async function handler(req, res) {
     let allCdnUrls = {};
     try { allCdnUrls = await fetchImageFillUrls(fileKey); } catch { /* 계속 진행 */ }
 
+    // 신규 프로젝트 시작 시 이전 Blob 이미지 전체 삭제
+    await clearAllBlobs();
+
     const allHtml = [], allCss = [], allJsx = [];
     const savedImages = [];
+    const blobUrls = {}; // fileName → CDN URL 맵 (다운로드용)
     let imgIdx = 0;
 
     for (const nid of nodeIds.slice(0, 3)) {
@@ -133,6 +154,7 @@ export default async function handler(req, res) {
             const saved = await saveImageToBlob(exportUrls[id], blobPath);
             if (saved) {
               imageNodeMap[id] = saved.url;
+              blobUrls[saved.fileName] = saved.url;
               return saved.fileName;
             }
             return null;
@@ -151,6 +173,7 @@ export default async function handler(req, res) {
           if (saved) {
             refCache[fn.ref] = saved.url;
             bgImageUrls[fn.ref] = saved.url;
+            blobUrls[saved.fileName] = saved.url;
             return { fn, blobUrl: saved.url, fileName: saved.fileName };
           }
           return null;
@@ -191,6 +214,7 @@ export default async function handler(req, res) {
     if (markup_type === 'react') finalResult.jsx = allJsx.join('\n\n');
     else finalResult.html = allHtml.join('\n\n');
     if (savedImages.length > 0) finalResult.saved_images = [...new Set(savedImages)];
+    if (Object.keys(blobUrls).length > 0) finalResult.blob_urls = blobUrls;
 
     res.json(finalResult);
   } catch (e) {

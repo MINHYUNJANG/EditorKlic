@@ -26,6 +26,8 @@ export default function FigmaMarkupPage() {
   const [fieldError, setFieldError] = useState('');
   const [copied, setCopied] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [blobUrls, setBlobUrls] = useState({});
+  const [downloading, setDownloading] = useState(false);
 
   const isReact = markupType === 'react';
   const hasResult = isReact ? Boolean(jsxResult || cssResult) : Boolean(htmlResult || cssResult);
@@ -51,6 +53,7 @@ ${htmlResult}
     setCssResult('');
     setJsxResult('');
     setError('');
+    setBlobUrls({});
     setActiveTab(nextType === 'react' ? 'jsx' : 'html');
   }
 
@@ -92,10 +95,41 @@ ${htmlResult}
         setCssResult(data.css || '');
         setActiveTab('html');
       }
+      if (data.blob_urls) setBlobUrls(data.blob_urls);
     } catch (err) {
       setError(err.name === 'TimeoutError' ? 'Figma 분석 시간이 초과되었습니다.' : err.message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleDownload() {
+    setDownloading(true);
+    try {
+      const response = await fetch('/api/figma-download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          html: htmlResult,
+          jsx: jsxResult,
+          css: cssResult,
+          blob_urls: blobUrls,
+          project_name: projectName || 'figma-markup',
+          markup_type: markupType,
+        }),
+      });
+      if (!response.ok) throw new Error('다운로드에 실패했습니다.');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${projectName || 'figma-markup'}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setDownloading(false);
     }
   }
 
@@ -213,6 +247,9 @@ ${htmlResult}
                 <div className="figma-actions">
                   {!isReact && <button className="crawl-copy-btn" onClick={() => setShowPreview(true)}>미리보기</button>}
                   <button className="crawl-copy-btn" onClick={handleCopy}>{copied ? '복사됨 ✓' : '복사'}</button>
+                  <button className="crawl-copy-btn" onClick={handleDownload} disabled={downloading}>
+                    {downloading ? '압축 중...' : '다운로드'}
+                  </button>
                 </div>
               </div>
 
