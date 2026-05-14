@@ -1,0 +1,114 @@
+.home {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: #f8f9fb;
+  padding: 4rem 1.5rem;
+}
+
+.home-inner {
+  max-width: 100rem;
+  margin: 0 auto;
+}
+
+.home-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.home-reactor {
+  width: 9rem;
+  height: 9rem;
+  margin: 0 auto 1rem;
+  object-fit: contain;
+}
+
+.home-title {
+  font-size: 3.75rem;
+  line-height: normal;
+  font-weight: 900;
+  font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  color: #0a1a3a;
+  margin: 0 0 0.75rem;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+}
+
+.home-subtitle {
+  font-size: 1.0625rem;
+  color: #666;
+  margin: 0;
+}
+
+/* Grid */
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+@media (max-width: 60rem) {
+  .home-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 36rem) {
+  .home-grid { grid-template-columns: 1fr; }
+  .home-reactor { width: 6.5rem; height: 6.5rem; }
+  .home-title { font-size: 1.75rem; }
+}
+
+/* Card */
+.home-card {
+  background: #fff;
+  border: 0.0625rem solid #e8e8ee;
+  border-radius: 0.75rem;
+  padding: 2rem 1.75rem;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  font-family: inherit;
+  position: relative;
+  overflow: hidden;
+}
+
+.home-card:hover {
+  border-color: #0070c8;
+  box-shadow: 0 0.5rem 1.5rem rgba(0, 112, 200, 0.1);
+  transform: translateY(-0.125rem);
+}
+
+.home-card-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.home-card-title {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: #1a2a4a;
+  margin: 0;
+}
+
+.home-card-desc {
+  font-size: 0.875rem;
+  color: #666;
+  line-height: 1.65;
+  margin: 0;
+  flex: 1;
+}
+
+.home-card-arrow {
+  font-size: 1.125rem;
+  color: #0070c8;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+  align-self: flex-end;
+}
+
+.home-card:hover .home-card-arrow {
+  opacity: 1;
+  transform: translateX(0.25rem);
+}

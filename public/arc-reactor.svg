@@ -1,0 +1,56 @@
+<svg width="320" height="320" viewBox="0 0 320 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#EAFBFF"/>
+      <stop offset="38%" stop-color="#63DDF7"/>
+      <stop offset="72%" stop-color="#178EC5" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#0A1A3A" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="metal" x1="70" y1="46" x2="250" y2="274">
+      <stop offset="0%" stop-color="#F8FBFF"/>
+      <stop offset="28%" stop-color="#9DB3C2"/>
+      <stop offset="54%" stop-color="#EDF6FF"/>
+      <stop offset="100%" stop-color="#526775"/>
+    </linearGradient>
+    <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <circle cx="160" cy="160" r="136" fill="url(#coreGlow)" opacity="0.52" filter="url(#softGlow)"/>
+  <circle cx="160" cy="160" r="111" stroke="url(#metal)" stroke-width="16"/>
+  <circle cx="160" cy="160" r="83" stroke="#E9F7FF" stroke-width="5" opacity="0.95"/>
+  <circle cx="160" cy="160" r="55" fill="#071A2D" opacity="0.92"/>
+  <circle cx="160" cy="160" r="43" fill="#D8FAFF" opacity="0.92" filter="url(#softGlow)"/>
+  <circle cx="160" cy="160" r="25" fill="#FFFFFF"/>
+
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <path d="M160 48V95" stroke="#EAFBFF" stroke-width="10"/>
+    <path d="M160 225V272" stroke="#EAFBFF" stroke-width="10"/>
+    <path d="M48 160H95" stroke="#EAFBFF" stroke-width="10"/>
+    <path d="M225 160H272" stroke="#EAFBFF" stroke-width="10"/>
+
+    <path d="M80.8 80.8L114 114" stroke="#63DDF7" stroke-width="8"/>
+    <path d="M206 206L239.2 239.2" stroke="#63DDF7" stroke-width="8"/>
+    <path d="M239.2 80.8L206 114" stroke="#63DDF7" stroke-width="8"/>
+    <path d="M114 206L80.8 239.2" stroke="#63DDF7" stroke-width="8"/>
+  </g>
+
+  <g opacity="0.9">
+    <path d="M151 21H169L178 64H142L151 21Z" fill="url(#metal)"/>
+    <path d="M151 299H169L178 256H142L151 299Z" fill="url(#metal)"/>
+    <path d="M299 151V169L256 178V142L299 151Z" fill="url(#metal)"/>
+    <path d="M21 151V169L64 178V142L21 151Z" fill="url(#metal)"/>
+    <path d="M247.3 59.9L260.1 72.7L236 109.5L210.5 84L247.3 59.9Z" fill="url(#metal)"/>
+    <path d="M72.7 260.1L59.9 247.3L84 210.5L109.5 236L72.7 260.1Z" fill="url(#metal)"/>
+    <path d="M260.1 247.3L247.3 260.1L210.5 236L236 210.5L260.1 247.3Z" fill="url(#metal)"/>
+    <path d="M59.9 72.7L72.7 59.9L109.5 84L84 109.5L59.9 72.7Z" fill="url(#metal)"/>
+  </g>
+
+  <circle cx="160" cy="160" r="120" stroke="#0A1A3A" stroke-width="4" opacity="0.5"/>
+  <circle cx="160" cy="160" r="70" stroke="#63DDF7" stroke-width="3" stroke-dasharray="12 10" opacity="0.9"/>
+</svg>

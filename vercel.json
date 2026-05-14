@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "pages/api/crawl.js": { "maxDuration": 60 },
+    "pages/api/auto-markup.js": { "maxDuration": 60 },
+    "pages/api/figma-accurate.js": { "maxDuration": 60 },
+    "pages/api/w3c.js": { "maxDuration": 60 },
+    "pages/api/css.js": { "maxDuration": 60 },
+    "pages/api/screenshot.js": { "maxDuration": 60 },
+    "pages/api/extract-urls.js": { "maxDuration": 60 },
+    "pages/api/download-hwpx.js": { "maxDuration": 30 },
+    "pages/api/fetch-markup.js": { "maxDuration": 30 }
+  }
+}
