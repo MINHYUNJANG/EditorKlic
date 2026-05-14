@@ -210,7 +210,8 @@ export default function UrlCrawlMarkup() {
       let data = {};
       try { data = await res.json(); } catch {}
       if (!res.ok) { setExtractError(data.detail || `서버 오류 (${res.status})`); return; }
-      setExtractedUrls(data.items.map(({ url, title }) => title ? `${url}\t${title}` : url).join('\n'));
+      const infoPages = data.items.filter(({ url }) => /\/sub\/info\.do(\?|$)/.test(url));
+      setExtractedUrls(infoPages.map(({ url, title }) => title ? `${url}\t${title}` : url).join('\n'));
     } catch (e) {
       setExtractError(`오류: ${e.message}`);
     } finally {
