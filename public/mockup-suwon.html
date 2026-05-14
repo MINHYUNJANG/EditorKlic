@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>수원교육청 AI 인트로 mockup</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; font-size: 14px; color: #222; background: #fff; }
+
+  /* ── header ── */
+  .hd { border-bottom: 1px solid #e0e0e0; }
+  .hd-top { display: flex; align-items: center; justify-content: space-between; padding: 14px 28px; }
+  .hd-logo { display: flex; align-items: center; gap: 8px; }
+  .hd-logo-mark { width: 36px; height: 36px; }
+  .hd-logo-mark svg { width: 100%; height: 100%; }
+  .hd-logo-text strong { display: block; font-size: 15px; font-weight: 800; color: #1a2a4a; }
+  .hd-logo-text small { font-size: 9px; color: #888; letter-spacing: .04em; }
+  .hd-utils { display: flex; gap: 20px; }
+  .hd-utils a { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 12px; color: #444; text-decoration: none; }
+  .hd-utils a svg { width: 20px; height: 20px; }
+
+  .hd-nav { background: #fff; border-top: 1px solid #eee; }
+  .hd-nav ul { display: flex; padding: 0 28px; list-style: none; }
+  .hd-nav li a { display: block; padding: 13px 18px; font-size: 14px; font-weight: 600; color: #333; text-decoration: none; white-space: nowrap; }
+  .hd-nav li a:hover { color: #0054a6; }
+
+  /* ── AI chat ── */
+  .ai-bar { background: linear-gradient(135deg, #eaf4ff 0%, #f5f0ff 100%); padding: 18px 28px; border-bottom: 1px solid #d4e6f7; }
+  .ai-bar-inner { max-width: 780px; margin: 0 auto; background: #fff; border: 1px solid #c5d8f0; border-radius: 14px; padding: 14px 18px; box-shadow: 0 2px 12px rgba(0,80,200,.07); }
+  .ai-bar-top { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .ai-spark { color: #0054a6; font-size: 16px; }
+  .ai-bar-top p { font-size: 13px; color: #555; }
+  .ai-input-row { display: flex; align-items: center; background: #f4f8ff; border: 1px solid #b8d0ef; border-radius: 30px; padding: 8px 8px 8px 16px; gap: 8px; }
+  .ai-input-row span { flex: 1; font-size: 14px; color: #222; }
+  .ai-send { width: 34px; height: 34px; border-radius: 50%; background: #1a2a4a; border: none; color: #fff; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+  /* ── main 2col ── */
+  .main-wrap { display: flex; gap: 0; padding: 20px 28px; gap: 20px; }
+
+  /* slider */
+  .main-slider { flex: 1; min-width: 0; border-radius: 12px; overflow: hidden; background: linear-gradient(135deg, #fff5f7 0%, #fff 100%); border: 1px solid #eee; position: relative; min-height: 260px; padding: 28px 24px; }
+  .slider-tag { font-size: 11px; color: #888; margin-bottom: 10px; }
+  .slider-title { font-size: 26px; font-weight: 900; color: #1a2a4a; line-height: 1.3; margin-bottom: 10px; }
+  .slider-title em { color: #0054a6; font-style: normal; }
+  .slider-sub { font-size: 13px; color: #555; margin-bottom: 14px; }
+  .slider-bullets { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #444; }
+  .slider-bullets li { list-style: none; padding-left: 12px; position: relative; }
+  .slider-bullets li::before { content: '•'; position: absolute; left: 0; color: #0054a6; }
+  .slider-logo { position: absolute; top: 22px; right: 22px; text-align: right; }
+  .slider-logo .mark { width: 28px; height: 28px; display: inline-block; vertical-align: middle; margin-right: 5px; }
+  .slider-logo span { font-size: 11px; color: #1a2a4a; font-weight: 700; }
+  .slider-logo small { display: block; font-size: 8px; color: #888; margin-top: 1px; }
+  .slider-illust { position: absolute; bottom: 0; right: 20px; font-size: 60px; opacity: .18; }
+  .slider-nav { position: absolute; bottom: 14px; left: 24px; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #999; }
+  .slider-pause { width: 22px; height: 22px; border: 1px solid #ccc; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #888; cursor: pointer; }
+
+  /* sidebar */
+  .main-side { width: 260px; flex-shrink: 0; }
+  .side-headline { font-size: 12px; color: #555; margin-bottom: 4px; }
+  .side-title { font-size: 20px; font-weight: 900; color: #1a2a4a; line-height: 1.35; margin-bottom: 14px; }
+  .side-title em { color: #0054a6; font-style: normal; }
+  .side-quickmenu { background: #0054a6; border-radius: 10px; padding: 14px 0 10px; }
+  .side-qm-head { display: flex; align-items: center; justify-content: space-between; padding: 0 14px 10px; color: #fff; }
+  .side-qm-head strong { font-size: 14px; font-weight: 700; }
+  .side-qm-list { list-style: none; }
+  .side-qm-list li { border-top: 1px solid rgba(255,255,255,.15); }
+  .side-qm-list li a { display: block; padding: 9px 14px; font-size: 13px; color: rgba(255,255,255,.9); text-decoration: none; }
+  .side-qm-list li a:hover { background: rgba(255,255,255,.08); }
+
+  /* ── banners ── */
+  .banners { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin: 0 28px 20px; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+  .banner { padding: 22px 24px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; transition: filter .15s; }
+  .banner:hover { filter: brightness(.93); }
+  .banner--blue { background: #1565c0; color: #fff; }
+  .banner--navy { background: #1a2a4a; color: #fff; border-left: 1px solid rgba(255,255,255,.15); }
+  .banner-badge { font-size: 11px; font-weight: 700; opacity: .7; text-transform: uppercase; letter-spacing: .05em; }
+  .banner strong { font-size: 18px; font-weight: 800; }
+  .banner p { font-size: 12px; opacity: .8; line-height: 1.5; }
+  .banner-arrow { font-size: 18px; margin-top: auto; opacity: .6; }
+
+  /* ── news ── */
+  .news-section { padding: 0 28px 20px; }
+  .news-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
+  .news-head h2 { font-size: 18px; font-weight: 700; color: #1a2a4a; }
+  .news-head h2 em { color: #0054a6; font-style: normal; }
+  .news-tabs { display: flex; gap: 10px; align-items: center; }
+  .news-tabs span { font-size: 13px; color: #555; cursor: pointer; }
+  .news-tabs span.on { font-weight: 700; color: #1a2a4a; }
+  .news-tabs .plus { width: 22px; height: 22px; background: #1a2a4a; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; }
+  .news-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .news-card { border-bottom: 1px solid #e8e8e8; padding-bottom: 14px; }
+  .news-tag { display: inline-block; padding: 2px 8px; background: #e8f0fb; color: #0054a6; font-size: 11px; font-weight: 700; border-radius: 3px; margin-bottom: 8px; }
+  .news-title { font-size: 13px; color: #222; line-height: 1.55; font-weight: 500; margin-bottom: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .news-date { font-size: 11px; color: #999; }
+</style>
+</head>
+<body>
+
+<!-- header -->
+<header class="hd">
+  <div class="hd-top">
+    <div class="hd-logo">
+      <div class="hd-logo-mark">
+        <svg viewBox="0 0 40 40" fill="none">
+          <path d="M20 4 L24 14 L35 14 L26 21 L29 32 L20 26 L11 32 L14 21 L5 14 L16 14 Z" fill="#c0392b"/>
+        </svg>
+      </div>
+      <div class="hd-logo-text">
+        <strong>경기도수원교육지원청</strong>
+        <small>GYENGGIDO SUWON OFFICE OF EDUCATION</small>
+      </div>
+    </div>
+    <div class="hd-utils">
+      <a href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        통합검색
+      </a>
+      <a href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3H19A2 2 0 0 1 21 5V19A2 2 0 0 1 19 21H15"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+        로그인
+      </a>
+      <a href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        회원가입
+      </a>
+      <a href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        사이트맵
+      </a>
+    </div>
+  </div>
+  <nav class="hd-nav">
+    <ul>
+      <li><a href="#">알림마당 ∨</a></li>
+      <li><a href="#">교육행정 ∨</a></li>
+      <li><a href="#">참여마당 ∨</a></li>
+      <li><a href="#">민원/신고 ∨</a></li>
+      <li><a href="#">정보공개 ∨</a></li>
+      <li><a href="#">교육지원청안내 ∨</a></li>
+    </ul>
+  </nav>
+</header>
+
+<!-- AI 인트로 chat bar -->
+<div class="ai-bar">
+  <div class="ai-bar-inner">
+    <div class="ai-bar-top">
+      <span class="ai-spark">✦</span>
+      <p>AI 어시스턴트입니다. 수원교육지원청에 대해 궁금한 점을 물어보세요!</p>
+    </div>
+    <div class="ai-input-row">
+      <span>오늘 급식뭐야?</span>
+      <button class="ai-send">↑</button>
+    </div>
+  </div>
+</div>
+
+<!-- main 2col -->
+<div class="main-wrap">
+  <div class="main-slider">
+    <div class="slider-logo">
+      <svg class="mark" viewBox="0 0 40 40"><path d="M20 4 L24 14 L35 14 L26 21 L29 32 L20 26 L11 32 L14 21 L5 14 L16 14 Z" fill="#c0392b"/></svg>
+      <span>경기도수원교육지원청</span>
+      <small>GYENGGIDO SUWON OFFICE OF EDUCATION</small>
+    </div>
+    <p class="slider-tag">기본 인성과 기초 역량을 갖춘 미래인재 양성</p>
+    <h2 class="slider-title">전통과 <em>미래</em>의 어울림,<br>새로운 <em>교육</em></h2>
+    <p class="slider-sub">기본 인성과 기초 역량을 갖춘 미래인재 양성</p>
+    <ul class="slider-bullets">
+      <li>인성 기반 학생 맞춤형 진로교육</li>
+      <li>디지털 기반 미래 역량 함양 교육</li>
+    </ul>
+    <div class="slider-illust">🎓</div>
+    <div class="slider-nav">
+      <span>01</span>
+      <span>——</span>
+      <span>01</span>
+      <div class="slider-pause">⏸</div>
+    </div>
+  </div>
+
+  <div class="main-side">
+    <p class="side-headline">기본 인성과 기초 역량을 갖춘 미래인재 양성</p>
+    <div class="side-title">전통과 <em>미래</em>의 어울림,<br>새로운 교육</div>
+    <div class="side-quickmenu">
+      <div class="side-qm-head">
+        <strong>자주 찾는 메뉴</strong>
+        <span style="font-size:18px;">💡</span>
+      </div>
+      <ul class="side-qm-list">
+        <li><a href="#">조직안내</a></li>
+        <li><a href="#">관내학교</a></li>
+        <li><a href="#">학교시설개방창구</a></li>
+        <li><a href="#">초등학교취학</a></li>
+        <li><a href="#">학원/교습소/개인과외</a></li>
+        <li><a href="#">초등학교 통학구역</a></li>
+        <li><a href="#">교육환경정보시스템</a></li>
+        <li><a href="#">초중학교 전/편입학</a></li>
+        <li><a href="#">고교 입학/전학</a></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- banners -->
+<div class="banners">
+  <div class="banner banner--blue">
+    <span class="banner-badge">Quick Access</span>
+    <strong>반편성</strong>
+    <p>신학기 반편성 결과를 확인하세요.<br>바로가기 페이지로 즉시 이동합니다.</p>
+    <span class="banner-arrow">→</span>
+  </div>
+  <div class="banner banner--navy">
+    <span class="banner-badge">Recruitment</span>
+    <strong>기간제교원 채용</strong>
+    <p>기간제교원 채용 공고 및 지원 안내.<br>최신 공고를 확인하세요.</p>
+    <span class="banner-arrow">→</span>
+  </div>
+</div>
+
+<!-- news -->
+<div class="news-section">
+  <div class="news-head">
+    <h2>교육지원청의 <em>새소식</em></h2>
+    <div class="news-tabs">
+      <span class="on">공지사항</span>
+      <span>·</span>
+      <span>학교소식</span>
+      <div class="plus">+</div>
+    </div>
+  </div>
+  <div class="news-grid">
+    <div class="news-card">
+      <span class="news-tag">공지사항</span>
+      <p class="news-title">2027학년도 경기도교육청 남부 권역 수시 대학입학정보박람회 운영 용역 제안...</p>
+      <p class="news-date">2026.05.14</p>
+    </div>
+    <div class="news-card">
+      <span class="news-tag">공지사항</span>
+      <p class="news-title">2026년 5월 수원교육지원청 관내 초등(특수), 초등(영어전담), 비교과(영양) 기간제교원 채용...</p>
+      <p class="news-date">2026.05.07</p>
+    </div>
+    <div class="news-card">
+      <span class="news-tag">공지사항</span>
+      <p class="news-title">2026 수원 E:음 공유학교 민간위탁형 프로그램 운영 기관 공모</p>
+      <p class="news-date">2026.05.07</p>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
