@@ -74,13 +74,17 @@ async function saveImageToTmp(cdnUrl, filePath) {
   }
 }
 
-// 이미지를 /tmp에 저장하고 /api/figma-image?path=... URL로 반환
-function getTmpImgDir(safeName) {
-  return path.join('/tmp', 'figma-markup', safeName, 'images');
+// Vercel 배포 환경이면 /tmp, 로컬이면 public/figma-markup에 저장
+const IS_VERCEL = !!process.env.VERCEL;
+
+function getImgDir(safeName) {
+  if (IS_VERCEL) return path.join('/tmp', 'figma-markup', safeName, 'images');
+  return path.join(process.cwd(), 'public', 'figma-markup', safeName, 'images');
 }
 
-function getImageApiPath(safeName, fileName) {
-  return `/api/figma-image?path=${encodeURIComponent(`${safeName}/images/${fileName}`)}`;
+function getImagePublicPath(safeName, fileName) {
+  if (IS_VERCEL) return `/api/figma-image?path=${encodeURIComponent(`${safeName}/images/${fileName}`)}`;
+  return `/figma-markup/${safeName}/images/${fileName}`;
 }
 
 export default async function handler(req, res) {
@@ -97,7 +101,7 @@ export default async function handler(req, res) {
 
     // ── 프로젝트 폴더 생성 (/tmp 사용) ────────────────────────
     const safeName = project_name.trim().replace(/[\\/:*?"<>|]/g, '_');
-    const imgFolderPath = getTmpImgDir(safeName);
+    const imgFolderPath = getImgDir(safeName);
     fs.mkdirSync(imgFolderPath, { recursive: true });
 
     // ── Figma 노드 ID 파악 ────────────────────────────────────
@@ -120,6 +124,7 @@ export default async function handler(req, res) {
     for (const nid of nodeIds.slice(0, 3)) {
       let nodeData;
       try { nodeData = await getFigmaNodeFull(fileKey, nid); } catch (e) {
+        if (e.message === 'FIGMA_RATE_LIMIT' || e.message === 'FIGMA_TOKEN_INVALID') throw e;
         console.warn('[노드 조회 실패]', e.message);
         continue;
       }
@@ -140,7 +145,7 @@ export default async function handler(req, res) {
             const savedPath = await saveImageToTmp(exportUrls[id], basePath);
             if (savedPath) {
               const fileName = path.basename(savedPath);
-              imageNodeMap[id] = getImageApiPath(safeName, fileName);
+              imageNodeMap[id] = getImagePublicPath(safeName, fileName);
               return fileName;
             }
             return null;
@@ -158,7 +163,7 @@ export default async function handler(req, res) {
           const savedPath = await saveImageToTmp(allCdnUrls[fn.ref], basePath);
           if (savedPath) {
             const fileName = path.basename(savedPath);
-            const apiPath = getImageApiPath(safeName, fileName);
+            const apiPath = getImagePublicPath(safeName, fileName);
             refCache[fn.ref] = apiPath;
             bgImageUrls[fn.ref] = apiPath;
             return { fn, apiPath, fileName };
@@ -204,7 +209,17 @@ export default async function handler(req, res) {
 
     res.json(finalResult);
   } catch (e) {
-    const status = e.message.includes('올바른 Figma URL') ? 400 : 500;
-    res.status(status).json({ detail: e.message });
+    let detail = e.message;
+    let status = 500;
+    if (e.message === 'FIGMA_RATE_LIMIT') {
+      status = 429;
+      detail = 'Figma API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.';
+    } else if (e.message === 'FIGMA_TOKEN_INVALID') {
+      status = 403;
+      detail = 'Figma API 토큰이 유효하지 않거나 만료되었습니다. .env.local의 FIGMA_ACCESS_TOKEN을 확인해주세요.';
+    } else if (e.message.includes('올바른 Figma URL')) {
+      status = 400;
+    }
+    res.status(status).json({ detail });
   }
 }

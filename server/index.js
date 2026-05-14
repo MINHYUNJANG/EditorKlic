@@ -181,6 +181,7 @@ app.post('/api/figma-accurate', async (req, res) => {
     for (const nid of nodeIds.slice(0, 3)) {
       let nodeData;
       try { nodeData = await getFigmaNodeFull(fileKey, nid); } catch (e) {
+        if (e.message === 'FIGMA_RATE_LIMIT' || e.message === 'FIGMA_TOKEN_INVALID') throw e;
         console.warn('[노드 조회 실패]', e.message);
         continue;
       }
@@ -265,8 +266,18 @@ app.post('/api/figma-accurate', async (req, res) => {
 
     res.json(finalResult);
   } catch (e) {
-    const status = e.message.includes('올바른 Figma URL') ? 400 : 500;
-    res.status(status).json({ detail: e.message });
+    let detail = e.message;
+    let status = 500;
+    if (e.message === 'FIGMA_RATE_LIMIT') {
+      status = 429;
+      detail = 'Figma API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.';
+    } else if (e.message === 'FIGMA_TOKEN_INVALID') {
+      status = 403;
+      detail = 'Figma API 토큰이 유효하지 않거나 만료되었습니다. .env.local의 FIGMA_ACCESS_TOKEN을 확인해주세요.';
+    } else if (e.message.includes('올바른 Figma URL')) {
+      status = 400;
+    }
+    res.status(status).json({ detail });
   }
 });
 

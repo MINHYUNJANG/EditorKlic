@@ -160,7 +160,21 @@ ${htmlResult}
           {loading && (
             <p className="figma-status">Figma 스타일 데이터 추출 중입니다. 색상, 폰트, 여백, 레이아웃을 분석하고 있어요.</p>
           )}
-          {error && <p className="crawl-error">{error}</p>}
+          {error && (
+            <div className="crawl-error" style={
+              error.includes('토큰') || error.includes('한도')
+                ? { borderColor: '#f5a623', background: '#fffbf0', display: 'flex', flexDirection: 'column', gap: '0.25rem' }
+                : {}
+            }>
+              <strong>{error}</strong>
+              {error.includes('토큰') && (
+                <span style={{ fontSize: '0.8125rem', color: '#666' }}>.env.local 파일의 FIGMA_ACCESS_TOKEN 값을 확인해주세요.</span>
+              )}
+              {error.includes('한도') && (
+                <span style={{ fontSize: '0.8125rem', color: '#666' }}>Figma API 분당 요청 한도에 도달했습니다. 1분 후 다시 시도해주세요.</span>
+              )}
+            </div>
+          )}
         </section>
 
         <section className="figma-panel figma-result-panel">
