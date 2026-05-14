@@ -317,7 +317,7 @@ export default function BatchMarkupPage() {
       {/* ─── 상단 타이틀 ─── */}
       <div className="bm-header">
         <h2 className="crawl-title">콘텐츠 일괄 마크업</h2>
-        <p className="crawl-desc" style={{ margin: 0 }}>
+        <p className="crawl-desc">
           학교명과 URL을 붙여넣으면 선택한 템플릿에 내용을 자동으로 적용합니다.
         </p>
         <div className="page-how-to">
