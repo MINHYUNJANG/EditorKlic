@@ -320,7 +320,7 @@ export default function BatchMarkupPage() {
         <p className="crawl-desc">
           학교명과 URL을 붙여넣으면 선택한 템플릿에 내용을 자동으로 적용합니다.
         </p>
-        <div className="page-how-to">
+        <div className="page-how-to" style={{ marginBottom: 0 }}>
           <div className="page-how-to-copy">
             <span className="ai-intro-kicker">사용방법</span>
             <h3>학교명과 URL을 입력하고 템플릿을 선택하면 콘텐츠를 자동으로 적용합니다</h3>
