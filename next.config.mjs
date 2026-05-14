@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  devIndicators: false,
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {
