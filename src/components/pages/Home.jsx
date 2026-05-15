@@ -32,7 +32,7 @@ export default function Home({ setCurrentPage }) {
       <div className="home-inner">
         <div className="home-header">
           <img className="home-reactor" src="/arc-reactor.svg" alt="" aria-hidden="true" />
-          <h1 className="home-title">KLIC Engine</h1>
+          <h1 className="home-title">KLIC TOOLs</h1>
           <p className="home-subtitle">AI 기반 자동 마크업 및 웹 검사 플랫폼</p>
         </div>
         <div className="home-grid">
