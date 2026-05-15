@@ -31,7 +31,7 @@
   color: #0a1a3a;
   margin: 0 0 0.75rem;
   letter-spacing: -0.03em;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .home-subtitle {
