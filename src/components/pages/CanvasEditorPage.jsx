@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 const DEFAULT_SIZE = { width: 800, height: 600 };
 const RESIZE_HANDLE_SIZE = 12;
+const DELETE_BUTTON_SIZE = 22;
 const FONT_OPTIONS = ['Pretendard', 'Arial', 'Georgia', 'Times New Roman', 'monospace', 'serif'];
 const ICON_OPTIONS = [
   { value: '⭐', label: '스타' },
@@ -90,27 +91,6 @@ function getFont(item) {
   return `${style} ${weight} ${item.size}px ${family}`;
 }
 
-function stripMarkup(html) {
-  return html
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/(li|tr|p|div|h[1-6])>/gi, '\n')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .split('\n')
-    .map(line => line.replace(/\s+/g, ' ').trim())
-    .filter(Boolean);
-}
-
-function splitMarkupSections(html) {
-  return html
-    .split(/\n{2,}/)
-    .map(section => stripMarkup(section))
-    .filter(section => section.length > 0);
-}
-
 function createInitialMarkupForm() {
   return {
     category: 'list',
@@ -132,17 +112,52 @@ function createInitialTextForm() {
   };
 }
 
+function MarkupRenderContent({ html, isEditing, onInput, onMouseDown, onBlur }) {
+  const contentRef = useRef(null);
+
+  useEffect(() => {
+    const element = contentRef.current;
+    if (!element || isEditing || element.innerHTML === html) return;
+    element.innerHTML = html;
+  }, [html, isEditing]);
+
+  useEffect(() => {
+    const element = contentRef.current;
+    if (!element || !isEditing) return;
+    element.focus();
+  }, [isEditing]);
+
+  return (
+    <div
+      ref={contentRef}
+      className="canvas-markup-content markup-render"
+      contentEditable={isEditing}
+      suppressContentEditableWarning
+      onInput={event => onInput(event.currentTarget.innerHTML)}
+      onMouseDown={onMouseDown}
+      onBlur={onBlur}
+    />
+  );
+}
+
 function CanvasEditorPage() {
   const canvasRef = useRef(null);
+  const foregroundCanvasRef = useRef(null);
   const imageInputRef = useRef(null);
   const bgInputRef = useRef(null);
   const [canvasSize, setCanvasSize] = useState(DEFAULT_SIZE);
+  const [canvasSizeForm, setCanvasSizeForm] = useState({
+    width: String(DEFAULT_SIZE.width),
+    height: String(DEFAULT_SIZE.height),
+  });
   const [bgColor, setBgColor] = useState('#ffffff');
   const [bgImage, setBgImage] = useState(null);
   const [items, setItems] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [drag, setDrag] = useState(null);
-  const [openPanel, setOpenPanel] = useState('text');
+  const [editingMarkupId, setEditingMarkupId] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null);
+  const [openPanel, setOpenPanel] = useState(null);
   const [workspaceTab, setWorkspaceTab] = useState('canvas');
   const [textForm, setTextForm] = useState(createInitialTextForm);
   const [iconForm, setIconForm] = useState({ value: '', size: 64, color: '#000000', x: 400, y: 300 });
@@ -152,6 +167,7 @@ function CanvasEditorPage() {
   const activeItem = items.find(item => item.id === activeId);
   const markupItems = items.filter(item => item.type === 'markup');
   const activeMarkupItem = activeItem?.type === 'markup' ? activeItem : markupItems[0];
+  const contextMenuItem = contextMenu ? items.find(item => item.id === contextMenu.itemId) : null;
   const selectedMarkupTemplates = MARKUP_TEMPLATES[markupForm.category] || [];
 
   function togglePanel(panel) {
@@ -167,8 +183,22 @@ function CanvasEditorPage() {
     };
   }
 
+  function getDeleteButtonBounds(bounds) {
+    return {
+      x: bounds.x + bounds.width - DELETE_BUTTON_SIZE / 2,
+      y: bounds.y - DELETE_BUTTON_SIZE / 2,
+      width: DELETE_BUTTON_SIZE,
+      height: DELETE_BUTTON_SIZE,
+    };
+  }
+
   function isInsideBounds(x, y, bounds) {
     return x >= bounds.x && x <= bounds.x + bounds.width && y >= bounds.y && y <= bounds.y + bounds.height;
+  }
+
+  function isEditableTarget(target) {
+    const tagName = target?.tagName?.toLowerCase();
+    return ['input', 'textarea', 'select'].includes(tagName) || target?.isContentEditable;
   }
 
   function measureItem(ctx, item) {
@@ -193,68 +223,6 @@ function CanvasEditorPage() {
     };
   }
 
-  function drawRoundedRect(ctx, x, y, width, height, radius = 12) {
-    const r = Math.min(radius, width / 2, height / 2);
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + width - r, y);
-    ctx.quadraticCurveTo(x + width, y, x + width, y + r);
-    ctx.lineTo(x + width, y + height - r);
-    ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
-    ctx.lineTo(x + r, y + height);
-    ctx.quadraticCurveTo(x, y + height, x, y + height - r);
-    ctx.lineTo(x, y + r);
-    ctx.quadraticCurveTo(x, y, x + r, y);
-    ctx.closePath();
-  }
-
-  function drawMarkupItem(ctx, item) {
-    const x = item.x - item.width / 2;
-    const y = item.y - item.height / 2;
-    const sections = splitMarkupSections(item.html);
-
-    drawRoundedRect(ctx, x, y, item.width, item.height, 14);
-    ctx.fillStyle = item.category === 'box' ? '#fff7ed' : '#ffffff';
-    ctx.fill();
-    ctx.strokeStyle = item.category === 'box' ? '#fb923c' : '#b9c2d0';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    ctx.fillStyle = '#0070c8';
-    ctx.font = '700 18px "Pretendard", sans-serif';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    ctx.fillText(item.label, x + 18, y + 16);
-
-    ctx.fillStyle = '#334155';
-    ctx.font = '500 14px "Pretendard", sans-serif';
-
-    let cursorY = y + 52;
-    sections.forEach((section, sectionIndex) => {
-      if (cursorY > y + item.height - 28) return;
-      if (sectionIndex > 0) {
-        ctx.strokeStyle = '#e2e8f0';
-        ctx.beginPath();
-        ctx.moveTo(x + 18, cursorY - 8);
-        ctx.lineTo(x + item.width - 18, cursorY - 8);
-        ctx.stroke();
-      }
-
-      section.forEach((line, lineIndex) => {
-        if (cursorY > y + item.height - 24) return;
-        const prefix = item.category === 'process' ? `${lineIndex + 1}` : '•';
-        const content = line.replace(/^\d단계:\s*/, '');
-        ctx.fillStyle = item.category === 'process' ? '#0070c8' : '#334155';
-        ctx.fillText(prefix, x + 20, cursorY);
-        ctx.fillStyle = '#334155';
-        ctx.fillText(content.slice(0, 34), x + 42, cursorY);
-        cursorY += 22;
-      });
-
-      cursorY += 12;
-    });
-  }
-
   function drawUnderline(ctx, item) {
     const width = ctx.measureText(item.value).width;
     const y = item.y + item.size * 0.35;
@@ -266,13 +234,43 @@ function CanvasEditorPage() {
     ctx.stroke();
   }
 
+  function drawCanvasItem(ctx, item) {
+    if (item.type === 'text') {
+      ctx.fillStyle = item.color;
+      ctx.font = getFont(item);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(item.value, item.x, item.y);
+      if (item.underline) drawUnderline(ctx, item);
+    }
+
+    if (item.type === 'icon') {
+      ctx.fillStyle = item.color;
+      ctx.font = `${item.size}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(item.value, item.x, item.y);
+    }
+
+    if (item.type === 'image') {
+      ctx.drawImage(item.image, item.x - item.width / 2, item.y - item.height / 2, item.width, item.height);
+    }
+  }
+
   function drawCanvas(options = {}) {
     const { showSelection = true } = options;
     const canvas = canvasRef.current;
+    const foregroundCanvas = foregroundCanvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+    const foregroundCtx = foregroundCanvas?.getContext('2d');
     canvas.width = canvasSize.width;
     canvas.height = canvasSize.height;
+    if (foregroundCanvas) {
+      foregroundCanvas.width = canvasSize.width;
+      foregroundCanvas.height = canvasSize.height;
+      foregroundCtx.clearRect(0, 0, canvasSize.width, canvasSize.height);
+    }
     ctx.clearRect(0, 0, canvasSize.width, canvasSize.height);
     ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
@@ -284,44 +282,47 @@ function CanvasEditorPage() {
       ctx.drawImage(bgImage, (canvasSize.width - width) / 2, (canvasSize.height - height) / 2, width, height);
     }
 
-    items.forEach(item => {
-      if (item.type === 'text') {
-        ctx.fillStyle = item.color;
-        ctx.font = getFont(item);
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(item.value, item.x, item.y);
-        if (item.underline) drawUnderline(ctx, item);
-      }
+    const lastMarkupIndex = items.reduce((lastIndex, item, index) => (item.type === 'markup' ? index : lastIndex), -1);
 
-      if (item.type === 'icon') {
-        ctx.fillStyle = item.color;
-        ctx.font = `${item.size}px sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(item.value, item.x, item.y);
-      }
+    items.forEach((item, index) => {
+      const isForegroundItem = foregroundCtx && item.type !== 'markup' && lastMarkupIndex >= 0 && index > lastMarkupIndex;
+      const targetCtx = isForegroundItem ? foregroundCtx : ctx;
+      drawCanvasItem(targetCtx, item);
 
-      if (item.type === 'image') {
-        ctx.drawImage(item.image, item.x - item.width / 2, item.y - item.height / 2, item.width, item.height);
-      }
-
-      if (item.type === 'markup') {
-        drawMarkupItem(ctx, item);
-      }
-
-      if (showSelection && item.id === activeId) {
-        const bounds = measureItem(ctx, item);
-        ctx.strokeStyle = '#0070c8';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
+      if (showSelection && item.id === activeId && item.type !== 'markup') {
+        const bounds = measureItem(targetCtx, item);
+        targetCtx.strokeStyle = '#0070c8';
+        targetCtx.lineWidth = 2;
+        targetCtx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
+        const deleteButton = getDeleteButtonBounds(bounds);
+        targetCtx.fillStyle = '#ef4444';
+        targetCtx.strokeStyle = '#ffffff';
+        targetCtx.lineWidth = 2;
+        targetCtx.beginPath();
+        targetCtx.arc(
+          deleteButton.x + deleteButton.width / 2,
+          deleteButton.y + deleteButton.height / 2,
+          deleteButton.width / 2,
+          0,
+          Math.PI * 2
+        );
+        targetCtx.fill();
+        targetCtx.stroke();
+        targetCtx.strokeStyle = '#ffffff';
+        targetCtx.lineWidth = 2;
+        targetCtx.beginPath();
+        targetCtx.moveTo(deleteButton.x + 7, deleteButton.y + 7);
+        targetCtx.lineTo(deleteButton.x + deleteButton.width - 7, deleteButton.y + deleteButton.height - 7);
+        targetCtx.moveTo(deleteButton.x + deleteButton.width - 7, deleteButton.y + 7);
+        targetCtx.lineTo(deleteButton.x + 7, deleteButton.y + deleteButton.height - 7);
+        targetCtx.stroke();
         if (item.type === 'icon' || item.type === 'image' || item.type === 'markup') {
           const handle = getResizeHandleBounds(bounds);
-          ctx.fillStyle = '#ffffff';
-          ctx.strokeStyle = '#0070c8';
-          ctx.lineWidth = 2;
-          ctx.fillRect(handle.x, handle.y, handle.width, handle.height);
-          ctx.strokeRect(handle.x, handle.y, handle.width, handle.height);
+          targetCtx.fillStyle = '#ffffff';
+          targetCtx.strokeStyle = '#0070c8';
+          targetCtx.lineWidth = 2;
+          targetCtx.fillRect(handle.x, handle.y, handle.width, handle.height);
+          targetCtx.strokeRect(handle.x, handle.y, handle.width, handle.height);
         }
       }
     });
@@ -333,6 +334,27 @@ function CanvasEditorPage() {
     if (document.fonts?.ready) document.fonts.ready.then(drawCanvas);
   }, []);
 
+  useEffect(() => {
+    function closeContextMenu() {
+      setContextMenu(null);
+    }
+
+    function handleContextMenuKeyDown(event) {
+      if (event.key === 'Escape') setContextMenu(null);
+    }
+
+    window.addEventListener('click', closeContextMenu);
+    window.addEventListener('keydown', handleContextMenuKeyDown);
+    window.addEventListener('resize', closeContextMenu);
+    window.addEventListener('scroll', closeContextMenu, true);
+    return () => {
+      window.removeEventListener('click', closeContextMenu);
+      window.removeEventListener('keydown', handleContextMenuKeyDown);
+      window.removeEventListener('resize', closeContextMenu);
+      window.removeEventListener('scroll', closeContextMenu, true);
+    };
+  }, []);
+
   function updateCenteredForms(nextSize) {
     const x = Math.round(nextSize.width / 2);
     const y = Math.round(nextSize.height / 2);
@@ -342,12 +364,31 @@ function CanvasEditorPage() {
   }
 
   function handleCanvasSizeChange(field, value) {
+    setCanvasSizeForm(form => ({ ...form, [field]: value }));
+    if (value === '') return;
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue) || numericValue < 100) return;
     const nextSize = {
       ...canvasSize,
-      [field]: Math.max(100, Number(value) || DEFAULT_SIZE[field]),
+      [field]: numericValue,
     };
     setCanvasSize(nextSize);
     updateCenteredForms(nextSize);
+  }
+
+  function commitCanvasSize(field) {
+    const numericValue = Number(canvasSizeForm[field]);
+    if (Number.isFinite(numericValue) && numericValue >= 100) {
+      const nextSize = {
+        ...canvasSize,
+        [field]: numericValue,
+      };
+      setCanvasSize(nextSize);
+      setCanvasSizeForm(form => ({ ...form, [field]: String(numericValue) }));
+      updateCenteredForms(nextSize);
+      return;
+    }
+    setCanvasSizeForm(form => ({ ...form, [field]: String(canvasSize[field]) }));
   }
 
   function loadImageFile(file, callback) {
@@ -519,12 +560,76 @@ function CanvasEditorPage() {
     )));
   }
 
+  function getMarkupItemStyle(item) {
+    return {
+      left: `${((item.x - item.width / 2) / canvasSize.width) * 100}%`,
+      top: `${((item.y - item.height / 2) / canvasSize.height) * 100}%`,
+      width: `${(item.width / canvasSize.width) * 100}%`,
+      height: `${(item.height / canvasSize.height) * 100}%`,
+    };
+  }
+
+  function deleteItemById(id) {
+    if (!id) return;
+    setItems(prev => prev.filter(item => item.id !== id));
+    setActiveId(current => (current === id ? null : current));
+    setDrag(current => (current?.id === id ? null : current));
+    setEditingMarkupId(current => (current === id ? null : current));
+  }
+
+  function bringItemToFront(id) {
+    if (!id) return;
+    setItems(prev => {
+      const target = prev.find(item => item.id === id);
+      if (!target) return prev;
+      return [...prev.filter(item => item.id !== id), target];
+    });
+    setActiveId(id);
+    setContextMenu(null);
+  }
+
+  function sendItemToBack(id) {
+    if (!id) return;
+    setItems(prev => {
+      const target = prev.find(item => item.id === id);
+      if (!target) return prev;
+      return [target, ...prev.filter(item => item.id !== id)];
+    });
+    setActiveId(id);
+    setContextMenu(null);
+  }
+
+  function openContextMenu(event, item) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!item) {
+      setContextMenu(null);
+      return;
+    }
+    setActiveId(item.id);
+    syncFormFromItem(item);
+    setContextMenu({
+      itemId: item.id,
+      x: event.clientX,
+      y: event.clientY,
+    });
+  }
+
   function getCanvasPosition(event) {
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
     return {
       x: (event.clientX - rect.left) * (canvas.width / rect.width),
       y: (event.clientY - rect.top) * (canvas.height / rect.height),
+    };
+  }
+
+  function getCanvasPositionFromClient(clientX, clientY) {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left) * (canvas.width / rect.width),
+      y: (clientY - rect.top) * (canvas.height / rect.height),
     };
   }
 
@@ -541,6 +646,16 @@ function CanvasEditorPage() {
     return null;
   }
 
+  function getItemAtClientPosition(clientX, clientY) {
+    const pos = getCanvasPositionFromClient(clientX, clientY);
+    return getItemAtPosition(pos.x, pos.y);
+  }
+
+  function handleFrameContextMenu(event) {
+    const item = getItemAtClientPosition(event.clientX, event.clientY);
+    openContextMenu(event, item);
+  }
+
   function getActiveResizeItemAtPosition(x, y) {
     if (!activeItem || !['icon', 'image', 'markup'].includes(activeItem.type)) return null;
     const canvas = canvasRef.current;
@@ -550,9 +665,25 @@ function CanvasEditorPage() {
     return isInsideBounds(x, y, handle) ? activeItem : null;
   }
 
+  function getActiveDeleteItemAtPosition(x, y) {
+    if (!activeItem) return null;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const bounds = measureItem(ctx, activeItem);
+    const deleteButton = getDeleteButtonBounds(bounds);
+    return isInsideBounds(x, y, deleteButton) ? activeItem : null;
+  }
+
   function startDrag(event) {
+    if (event.button === 2) return;
     event.preventDefault();
     const pos = getCanvasPosition(event);
+    const deleteItem = getActiveDeleteItemAtPosition(pos.x, pos.y);
+    if (deleteItem) {
+      deleteItemById(deleteItem.id);
+      return;
+    }
+
     const resizeItem = getActiveResizeItemAtPosition(pos.x, pos.y);
     if (resizeItem) {
       setDrag({
@@ -570,11 +701,153 @@ function CanvasEditorPage() {
     const item = getItemAtPosition(pos.x, pos.y);
     if (!item) {
       setActiveId(null);
+      setEditingMarkupId(null);
       return;
     }
     setActiveId(item.id);
+    if (item.type !== 'markup') setEditingMarkupId(null);
     syncFormFromItem(item);
     setDrag({ mode: 'move', id: item.id, offsetX: pos.x - item.x, offsetY: pos.y - item.y });
+  }
+
+  function startMarkupDrag(event, item) {
+    if (event.button === 2) return;
+    if (editingMarkupId === item.id) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const pos = getCanvasPosition(event);
+    setActiveId(item.id);
+    syncFormFromItem(item);
+    setDrag({ mode: 'move', id: item.id, offsetX: pos.x - item.x, offsetY: pos.y - item.y });
+  }
+
+  function startMarkupEdit(event, item) {
+    event.preventDefault();
+    event.stopPropagation();
+    setActiveId(item.id);
+    syncFormFromItem(item);
+    setEditingMarkupId(item.id);
+  }
+
+  function updateMarkupHtmlById(id, html) {
+    setItems(prev => prev.map(item => (
+      item.id === id ? { ...item, html } : item
+    )));
+  }
+
+  function startMarkupResize(event, item) {
+    event.preventDefault();
+    event.stopPropagation();
+    const pos = getCanvasPosition(event);
+    setActiveId(item.id);
+    setDrag({
+      mode: 'resize',
+      id: item.id,
+      startX: pos.x,
+      startY: pos.y,
+      startWidth: item.width,
+      startHeight: item.height,
+    });
+  }
+
+  function downloadDataUrl(dataUrl, filename) {
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = filename;
+    link.click();
+  }
+
+  function getItemFilename(item) {
+    return `klic-${item.type}-${item.id.slice(0, 8)}.png`;
+  }
+
+  function downloadCanvasItemAsImage(item) {
+    const sourceCanvas = canvasRef.current;
+    if (!sourceCanvas) return;
+    const measureCanvas = document.createElement('canvas');
+    const measureCtx = measureCanvas.getContext('2d');
+    const bounds = measureItem(measureCtx, item);
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = Math.ceil(bounds.width);
+    exportCanvas.height = Math.ceil(bounds.height);
+    const exportCtx = exportCanvas.getContext('2d');
+
+    if (item.type === 'image') {
+      exportCtx.drawImage(item.image, 0, 0, exportCanvas.width, exportCanvas.height);
+    } else {
+      drawCanvasItem(exportCtx, {
+        ...item,
+        x: exportCanvas.width / 2,
+        y: exportCanvas.height / 2,
+      });
+    }
+
+    downloadDataUrl(exportCanvas.toDataURL('image/png'), getItemFilename(item));
+  }
+
+  function loadImageFromDataUrl(dataUrl) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = reject;
+      image.src = dataUrl;
+    });
+  }
+
+  async function downloadMarkupItemAsImage(item) {
+    const css = await fetch('/markup_com.css').then(response => response.text());
+    const wrapper = document.createElement('div');
+    wrapper.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+    wrapper.setAttribute('class', 'markup-render');
+    wrapper.setAttribute('style', `width:${item.width}px;height:${item.height}px;padding:12px;box-sizing:border-box;overflow:hidden;background:transparent;`);
+    wrapper.innerHTML = item.html;
+    const content = new XMLSerializer().serializeToString(wrapper);
+    const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="${item.width}" height="${item.height}">
+  <foreignObject width="100%" height="100%">
+    <style xmlns="http://www.w3.org/1999/xhtml"><![CDATA[${css}]]></style>
+    ${content}
+  </foreignObject>
+</svg>`;
+    const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+    const image = await loadImageFromDataUrl(dataUrl);
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = item.width;
+    exportCanvas.height = item.height;
+    exportCanvas.getContext('2d').drawImage(image, 0, 0);
+    downloadDataUrl(exportCanvas.toDataURL('image/png'), getItemFilename(item));
+  }
+
+  async function downloadItemAsImage(id) {
+    const item = items.find(candidate => candidate.id === id);
+    if (!item) return;
+    setContextMenu(null);
+    try {
+      if (item.type === 'markup') {
+        await downloadMarkupItemAsImage(item);
+        return;
+      }
+      downloadCanvasItemAsImage(item);
+    } catch (error) {
+      alert('선택 요소를 이미지로 저장하지 못했습니다. 다시 시도해 주세요.');
+    }
+  }
+
+  function moveItemById(id, x, y) {
+    const target = items.find(item => item.id === id);
+    if (!target) return;
+    const nextX = clamp(x, 0, canvasSize.width);
+    const nextY = clamp(y, 0, canvasSize.height);
+    setItems(prev => prev.map(item => (item.id === id ? { ...item, x: nextX, y: nextY } : item)));
+    if (target.type === 'text') {
+      setTextForm(form => ({ ...form, x: Math.round(nextX), y: Math.round(nextY) }));
+    }
+    if (target.type === 'icon') {
+      setIconForm(form => ({ ...form, x: Math.round(nextX), y: Math.round(nextY) }));
+    }
+    if (target.type === 'image') {
+      setImageForm(form => ({ ...form, x: Math.round(nextX), y: Math.round(nextY) }));
+    }
   }
 
   function moveDrag(event) {
@@ -608,21 +881,44 @@ function CanvasEditorPage() {
 
     const x = clamp(pos.x - drag.offsetX, 0, canvasSize.width);
     const y = clamp(pos.y - drag.offsetY, 0, canvasSize.height);
-    setItems(prev => prev.map(item => (item.id === drag.id ? { ...item, x, y } : item)));
-    if (activeItem?.type === 'text') {
-      setTextForm(form => ({ ...form, x: Math.round(x), y: Math.round(y) }));
-    }
-    if (activeItem?.type === 'icon') {
-      setIconForm(form => ({ ...form, x: Math.round(x), y: Math.round(y) }));
-    }
-    if (activeItem?.type === 'image') {
-      setImageForm(form => ({ ...form, x: Math.round(x), y: Math.round(y) }));
-    }
+    moveItemById(drag.id, x, y);
   }
 
   function endDrag() {
     setDrag(null);
   }
+
+  useEffect(() => {
+    function handleKeyDown(event) {
+      if (!activeItem) return;
+      if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Delete', 'Backspace', 'Escape'].includes(event.key)) return;
+      if (isEditableTarget(event.target)) return;
+
+      event.preventDefault();
+      if (event.key === 'Escape') {
+        setEditingMarkupId(null);
+        return;
+      }
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        deleteItemById(activeItem.id);
+        return;
+      }
+
+      const step = event.shiftKey ? 10 : 1;
+      const next = {
+        x: activeItem.x,
+        y: activeItem.y,
+      };
+      if (event.key === 'ArrowUp') next.y -= step;
+      if (event.key === 'ArrowDown') next.y += step;
+      if (event.key === 'ArrowLeft') next.x -= step;
+      if (event.key === 'ArrowRight') next.x += step;
+      moveItemById(activeItem.id, next.x, next.y);
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeItem, canvasSize.width, canvasSize.height, items]);
 
   function downloadImage() {
     const canvas = canvasRef.current;
@@ -650,8 +946,9 @@ function CanvasEditorPage() {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>KL캔버스 마크업</title>
+  <link rel="stylesheet" href="./markup_com.css">
 </head>
-<body>
+<body class="markup-render">
 ${body}
 </body>
 </html>`;
@@ -666,10 +963,16 @@ ${body}
 
   function resetCanvas() {
     setCanvasSize(DEFAULT_SIZE);
+    setCanvasSizeForm({
+      width: String(DEFAULT_SIZE.width),
+      height: String(DEFAULT_SIZE.height),
+    });
     setBgColor('#ffffff');
     setBgImage(null);
     setItems([]);
     setActiveId(null);
+    setEditingMarkupId(null);
+    setContextMenu(null);
     setDrag(null);
     setTextForm(createInitialTextForm());
     setIconForm({ value: '', size: 64, color: '#000000', x: 400, y: 300 });
@@ -840,8 +1143,26 @@ ${body}
 
         <section className="canvas-workspace">
           <div className="canvas-topbar">
-            <label>가로<input type="number" min="100" value={canvasSize.width} onChange={event => handleCanvasSizeChange('width', event.target.value)} /></label>
-            <label>세로<input type="number" min="100" value={canvasSize.height} onChange={event => handleCanvasSizeChange('height', event.target.value)} /></label>
+            <label>
+              가로
+              <input
+                type="number"
+                min="100"
+                value={canvasSizeForm.width}
+                onChange={event => handleCanvasSizeChange('width', event.target.value)}
+                onBlur={() => commitCanvasSize('width')}
+              />
+            </label>
+            <label>
+              세로
+              <input
+                type="number"
+                min="100"
+                value={canvasSizeForm.height}
+                onChange={event => handleCanvasSizeChange('height', event.target.value)}
+                onBlur={() => commitCanvasSize('height')}
+              />
+            </label>
             <label className="canvas-color-picker">
               배경색
               <span style={{ backgroundColor: bgColor }} />
@@ -893,14 +1214,85 @@ ${body}
             </div>
           ) : (
             <div className="canvas-stage">
-              <canvas
-                ref={canvasRef}
-                onMouseDown={startDrag}
-                onMouseMove={moveDrag}
-                onMouseUp={endDrag}
-                onMouseLeave={endDrag}
-                className={drag?.mode === 'resize' ? 'is-resizing' : drag ? 'is-dragging' : ''}
-              />
+              <div className="canvas-frame" onContextMenu={handleFrameContextMenu}>
+                <canvas
+                  ref={canvasRef}
+                  onMouseDown={startDrag}
+                  onMouseMove={moveDrag}
+                  onMouseUp={endDrag}
+                  onMouseLeave={endDrag}
+                  className={drag?.mode === 'resize' ? 'is-resizing' : drag ? 'is-dragging' : ''}
+                />
+                <canvas
+                  ref={foregroundCanvasRef}
+                  className="canvas-foreground"
+                  aria-hidden="true"
+                />
+                <div className="canvas-markup-layer" onMouseMove={moveDrag} onMouseUp={endDrag} onMouseLeave={endDrag}>
+                  {markupItems.map(item => (
+                    <div
+                      key={item.id}
+                      className={`canvas-markup-render-item ${item.id === activeId ? 'is-active' : ''} ${editingMarkupId === item.id ? 'is-editing' : ''}`}
+                      style={getMarkupItemStyle(item)}
+                      onMouseDown={event => startMarkupDrag(event, item)}
+                      onContextMenu={handleFrameContextMenu}
+                      onDoubleClick={event => startMarkupEdit(event, item)}
+                      onMouseMove={moveDrag}
+                      onMouseUp={endDrag}
+                      onMouseLeave={endDrag}
+                    >
+                      {item.id === activeId && (
+                        <>
+                          <button
+                            type="button"
+                            className="canvas-markup-delete"
+                            onMouseDown={event => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              deleteItemById(item.id);
+                            }}
+                            aria-label="마크업 삭제"
+                          >
+                            ×
+                          </button>
+                          <span
+                            className="canvas-markup-resize"
+                            onMouseDown={event => startMarkupResize(event, item)}
+                            aria-hidden="true"
+                          />
+                        </>
+                      )}
+                      <MarkupRenderContent
+                        html={item.html}
+                        isEditing={editingMarkupId === item.id}
+                        onInput={html => updateMarkupHtmlById(item.id, html)}
+                        onMouseDown={event => {
+                          if (editingMarkupId === item.id) event.stopPropagation();
+                        }}
+                        onBlur={() => setEditingMarkupId(null)}
+                      />
+                    </div>
+                  ))}
+                </div>
+                {contextMenuItem && (
+                  <div
+                    className="canvas-context-menu"
+                    style={{ left: contextMenu.x, top: contextMenu.y }}
+                    onClick={event => event.stopPropagation()}
+                    onContextMenu={event => event.preventDefault()}
+                  >
+                    <button type="button" onClick={() => bringItemToFront(contextMenuItem.id)}>
+                      맨 앞으로 가져오기
+                    </button>
+                    <button type="button" onClick={() => sendItemToBack(contextMenuItem.id)}>
+                      맨 뒤로 보내기
+                    </button>
+                    <button type="button" onClick={() => downloadItemAsImage(contextMenuItem.id)}>
+                      선택 요소 PNG 저장
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
