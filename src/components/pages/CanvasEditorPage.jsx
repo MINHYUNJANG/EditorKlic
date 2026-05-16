@@ -14,6 +14,70 @@ const ICON_OPTIONS = [
   { value: '✅', label: '체크' },
   { value: '💡', label: '아이디어' },
 ];
+const MARKUP_CATEGORIES = [
+  { value: 'list', label: '리스트' },
+  { value: 'table', label: '테이블' },
+  { value: 'process', label: '절차' },
+  { value: 'box', label: '박스' },
+];
+const MARKUP_TEMPLATES = {
+  list: [
+    {
+      id: 'list-basic',
+      label: '기본 목록',
+      preview: 'list-basic',
+      html: '<ul class="notice-list">\n  <li>첫 번째 안내 항목</li>\n  <li>두 번째 안내 항목</li>\n  <li>세 번째 안내 항목</li>\n</ul>',
+    },
+    {
+      id: 'list-check',
+      label: '체크 목록',
+      preview: 'list-check',
+      html: '<ul class="check-list">\n  <li>신청서 제출</li>\n  <li>담당자 확인</li>\n  <li>결과 안내</li>\n</ul>',
+    },
+  ],
+  table: [
+    {
+      id: 'table-basic',
+      label: '기본 표',
+      preview: 'table-basic',
+      html: '<table class="info-table">\n  <thead><tr><th>구분</th><th>내용</th></tr></thead>\n  <tbody>\n    <tr><td>일시</td><td>2026. 05. 16.</td></tr>\n    <tr><td>장소</td><td>강당</td></tr>\n  </tbody>\n</table>',
+    },
+    {
+      id: 'table-schedule',
+      label: '일정 표',
+      preview: 'table-schedule',
+      html: '<table class="schedule-table">\n  <tr><th>시간</th><th>프로그램</th></tr>\n  <tr><td>10:00</td><td>접수</td></tr>\n  <tr><td>10:30</td><td>행사 시작</td></tr>\n</table>',
+    },
+  ],
+  process: [
+    {
+      id: 'process-steps',
+      label: '3단계 절차',
+      preview: 'process-steps',
+      html: '<ol class="step-list">\n  <li>1단계: 신청</li>\n  <li>2단계: 확인</li>\n  <li>3단계: 완료</li>\n</ol>',
+    },
+    {
+      id: 'process-flow',
+      label: '진행 흐름',
+      preview: 'process-flow',
+      html: '<div class="process-flow">\n  <span>접수</span>\n  <span>검토</span>\n  <span>안내</span>\n</div>',
+    },
+  ],
+  box: [
+    {
+      id: 'box-notice',
+      label: '공지 박스',
+      preview: 'box-notice',
+      html: '<div class="notice-box">\n  <strong>알림</strong>\n  <p>중요한 안내 내용을 입력하세요.</p>\n</div>',
+    },
+    {
+      id: 'box-highlight',
+      label: '강조 박스',
+      preview: 'box-highlight',
+      html: '<div class="highlight-box">\n  <strong>확인해주세요</strong>\n  <p>가정통신문 또는 팝업에 들어갈 핵심 문구를 입력하세요.</p>\n</div>',
+    },
+  ],
+};
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -24,6 +88,34 @@ function getFont(item) {
   const weight = item.bold ? '700' : '400';
   const family = ['serif', 'monospace'].includes(item.font) ? item.font : `"${item.font || 'Pretendard'}", sans-serif`;
   return `${style} ${weight} ${item.size}px ${family}`;
+}
+
+function stripMarkup(html) {
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(li|tr|p|div|h[1-6])>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .split('\n')
+    .map(line => line.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+}
+
+function splitMarkupSections(html) {
+  return html
+    .split(/\n{2,}/)
+    .map(section => stripMarkup(section))
+    .filter(section => section.length > 0);
+}
+
+function createInitialMarkupForm() {
+  return {
+    category: 'list',
+    templateId: '',
+  };
 }
 
 function createInitialTextForm() {
@@ -51,11 +143,16 @@ function CanvasEditorPage() {
   const [activeId, setActiveId] = useState(null);
   const [drag, setDrag] = useState(null);
   const [openPanel, setOpenPanel] = useState('text');
+  const [workspaceTab, setWorkspaceTab] = useState('canvas');
   const [textForm, setTextForm] = useState(createInitialTextForm);
   const [iconForm, setIconForm] = useState({ value: '', size: 64, color: '#000000', x: 400, y: 300 });
   const [imageForm, setImageForm] = useState({ image: null, width: 200, height: 200, x: 400, y: 300 });
+  const [markupForm, setMarkupForm] = useState(createInitialMarkupForm);
 
   const activeItem = items.find(item => item.id === activeId);
+  const markupItems = items.filter(item => item.type === 'markup');
+  const activeMarkupItem = activeItem?.type === 'markup' ? activeItem : markupItems[0];
+  const selectedMarkupTemplates = MARKUP_TEMPLATES[markupForm.category] || [];
 
   function togglePanel(panel) {
     setOpenPanel(current => (current === panel ? null : panel));
@@ -75,7 +172,7 @@ function CanvasEditorPage() {
   }
 
   function measureItem(ctx, item) {
-    if (item.type === 'image') {
+    if (item.type === 'image' || item.type === 'markup') {
       return {
         x: item.x - item.width / 2,
         y: item.y - item.height / 2,
@@ -96,6 +193,68 @@ function CanvasEditorPage() {
     };
   }
 
+  function drawRoundedRect(ctx, x, y, width, height, radius = 12) {
+    const r = Math.min(radius, width / 2, height / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + width - r, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+    ctx.lineTo(x + width, y + height - r);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+    ctx.lineTo(x + r, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  function drawMarkupItem(ctx, item) {
+    const x = item.x - item.width / 2;
+    const y = item.y - item.height / 2;
+    const sections = splitMarkupSections(item.html);
+
+    drawRoundedRect(ctx, x, y, item.width, item.height, 14);
+    ctx.fillStyle = item.category === 'box' ? '#fff7ed' : '#ffffff';
+    ctx.fill();
+    ctx.strokeStyle = item.category === 'box' ? '#fb923c' : '#b9c2d0';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = '#0070c8';
+    ctx.font = '700 18px "Pretendard", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(item.label, x + 18, y + 16);
+
+    ctx.fillStyle = '#334155';
+    ctx.font = '500 14px "Pretendard", sans-serif';
+
+    let cursorY = y + 52;
+    sections.forEach((section, sectionIndex) => {
+      if (cursorY > y + item.height - 28) return;
+      if (sectionIndex > 0) {
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.beginPath();
+        ctx.moveTo(x + 18, cursorY - 8);
+        ctx.lineTo(x + item.width - 18, cursorY - 8);
+        ctx.stroke();
+      }
+
+      section.forEach((line, lineIndex) => {
+        if (cursorY > y + item.height - 24) return;
+        const prefix = item.category === 'process' ? `${lineIndex + 1}` : '•';
+        const content = line.replace(/^\d단계:\s*/, '');
+        ctx.fillStyle = item.category === 'process' ? '#0070c8' : '#334155';
+        ctx.fillText(prefix, x + 20, cursorY);
+        ctx.fillStyle = '#334155';
+        ctx.fillText(content.slice(0, 34), x + 42, cursorY);
+        cursorY += 22;
+      });
+
+      cursorY += 12;
+    });
+  }
+
   function drawUnderline(ctx, item) {
     const width = ctx.measureText(item.value).width;
     const y = item.y + item.size * 0.35;
@@ -107,7 +266,8 @@ function CanvasEditorPage() {
     ctx.stroke();
   }
 
-  function drawCanvas() {
+  function drawCanvas(options = {}) {
+    const { showSelection = true } = options;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -146,12 +306,16 @@ function CanvasEditorPage() {
         ctx.drawImage(item.image, item.x - item.width / 2, item.y - item.height / 2, item.width, item.height);
       }
 
-      if (item.id === activeId) {
+      if (item.type === 'markup') {
+        drawMarkupItem(ctx, item);
+      }
+
+      if (showSelection && item.id === activeId) {
         const bounds = measureItem(ctx, item);
         ctx.strokeStyle = '#0070c8';
         ctx.lineWidth = 2;
         ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
-        if (item.type === 'icon' || item.type === 'image') {
+        if (item.type === 'icon' || item.type === 'image' || item.type === 'markup') {
           const handle = getResizeHandleBounds(bounds);
           ctx.fillStyle = '#ffffff';
           ctx.strokeStyle = '#0070c8';
@@ -163,7 +327,7 @@ function CanvasEditorPage() {
     });
   }
 
-  useEffect(drawCanvas, [canvasSize, bgColor, bgImage, items, activeId]);
+  useEffect(drawCanvas, [canvasSize, bgColor, bgImage, items, activeId, workspaceTab]);
 
   useEffect(() => {
     if (document.fonts?.ready) document.fonts.ready.then(drawCanvas);
@@ -235,13 +399,23 @@ function CanvasEditorPage() {
     }));
   }
 
+  function syncMarkupForm(item) {
+    if (item?.type !== 'markup') return;
+    setMarkupForm({
+      category: item.category,
+      templateId: item.templateId,
+    });
+  }
+
   function syncFormFromItem(item) {
     syncTextForm(item);
     syncIconForm(item);
     syncImageForm(item);
+    syncMarkupForm(item);
     if (item?.type === 'text') setOpenPanel('text');
     if (item?.type === 'icon') setOpenPanel('icon');
     if (item?.type === 'image') setOpenPanel('image');
+    if (item?.type === 'markup') setOpenPanel('markup');
   }
 
   function updateActiveText(patch) {
@@ -320,6 +494,31 @@ function CanvasEditorPage() {
     setActiveId(item.id);
   }
 
+  function addMarkup(template) {
+    const item = {
+      id: crypto.randomUUID(),
+      type: 'markup',
+      category: markupForm.category,
+      templateId: template.id,
+      label: template.label,
+      html: template.html,
+      width: markupForm.category === 'table' ? 380 : 340,
+      height: markupForm.category === 'process' ? 170 : 190,
+      x: canvasSize.width / 2,
+      y: canvasSize.height / 2,
+    };
+    setItems(prev => [...prev, item]);
+    setActiveId(item.id);
+    setWorkspaceTab('canvas');
+  }
+
+  function updateActiveMarkupHtml(html) {
+    if (!activeMarkupItem) return;
+    setItems(prev => prev.map(item => (
+      item.id === activeMarkupItem.id ? { ...item, html } : item
+    )));
+  }
+
   function getCanvasPosition(event) {
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
@@ -343,7 +542,7 @@ function CanvasEditorPage() {
   }
 
   function getActiveResizeItemAtPosition(x, y) {
-    if (!activeItem || (activeItem.type !== 'icon' && activeItem.type !== 'image')) return null;
+    if (!activeItem || !['icon', 'image', 'markup'].includes(activeItem.type)) return null;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     const bounds = measureItem(ctx, activeItem);
@@ -399,6 +598,11 @@ function CanvasEditorPage() {
         setImageForm(form => ({ ...form, width, height }));
         setItems(prev => prev.map(item => (item.id === drag.id ? { ...item, width, height } : item)));
       }
+      if (target?.type === 'markup') {
+        const width = Math.max(180, Math.round((drag.startWidth || target.width) + deltaX));
+        const height = Math.max(120, Math.round((drag.startHeight || target.height) + deltaY));
+        setItems(prev => prev.map(item => (item.id === drag.id ? { ...item, width, height } : item)));
+      }
       return;
     }
 
@@ -422,10 +626,42 @@ function CanvasEditorPage() {
 
   function downloadImage() {
     const canvas = canvasRef.current;
+    if (!canvas) {
+      alert('캔버스 탭에서 PNG 저장을 진행해주세요.');
+      return;
+    }
+    drawCanvas({ showSelection: false });
     const link = document.createElement('a');
     link.href = canvas.toDataURL('image/png');
     link.download = 'klic-canvas.png';
     link.click();
+    requestAnimationFrame(() => drawCanvas());
+  }
+
+  function downloadMarkupHtml() {
+    if (markupItems.length === 0) {
+      alert('저장할 마크업이 없습니다.');
+      return;
+    }
+    const body = markupItems.map(item => item.html.trim()).filter(Boolean).join('\n\n');
+    const html = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KL캔버스 마크업</title>
+</head>
+<body>
+${body}
+</body>
+</html>`;
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'kl-canvas-markup.html';
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   function resetCanvas() {
@@ -438,6 +674,8 @@ function CanvasEditorPage() {
     setTextForm(createInitialTextForm());
     setIconForm({ value: '', size: 64, color: '#000000', x: 400, y: 300 });
     setImageForm({ image: null, width: 200, height: 200, x: 400, y: 300 });
+    setMarkupForm(createInitialMarkupForm());
+    setWorkspaceTab('canvas');
     if (bgInputRef.current) bgInputRef.current.value = '';
     if (imageInputRef.current) imageInputRef.current.value = '';
   }
@@ -558,6 +796,46 @@ function CanvasEditorPage() {
               </div>
             )}
           </section>
+
+          <section className={`canvas-panel ${openPanel === 'markup' ? 'is-open' : ''}`}>
+            <button type="button" className="canvas-panel-toggle" onClick={() => togglePanel('markup')} aria-expanded={openPanel === 'markup'}>
+              <span>마크업</span>
+              <span aria-hidden="true">{openPanel === 'markup' ? '−' : '+'}</span>
+            </button>
+            {openPanel === 'markup' && (
+              <div className="canvas-panel-body">
+                <label>
+                  유형
+                  <select
+                    value={markupForm.category}
+                    onChange={event => setMarkupForm({ category: event.target.value, templateId: '' })}
+                  >
+                    {MARKUP_CATEGORIES.map(category => (
+                      <option key={category.value} value={category.value}>{category.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <div className="canvas-markup-template-grid" aria-label="마크업 모양 선택">
+                  {selectedMarkupTemplates.map(template => (
+                    <button
+                      key={template.id}
+                      type="button"
+                      className={markupForm.templateId === template.id ? 'is-active' : ''}
+                      onClick={() => {
+                        setMarkupForm(form => ({ ...form, templateId: template.id }));
+                        addMarkup(template);
+                      }}
+                    >
+                      <span className={`canvas-markup-thumb canvas-markup-thumb--${template.preview}`} aria-hidden="true">
+                        <i /><i /><i /><i /><i /><i />
+                      </span>
+                      <strong>{template.label}</strong>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
         </aside>
 
         <section className="canvas-workspace">
@@ -575,19 +853,62 @@ function CanvasEditorPage() {
             </label>
           </div>
 
-          <div className="canvas-stage">
-            <canvas
-              ref={canvasRef}
-              onMouseDown={startDrag}
-              onMouseMove={moveDrag}
-              onMouseUp={endDrag}
-              onMouseLeave={endDrag}
-              className={drag?.mode === 'resize' ? 'is-resizing' : drag ? 'is-dragging' : ''}
-            />
-          </div>
+          {markupItems.length > 0 && (
+            <div className="canvas-workspace-tabs" role="tablist" aria-label="캔버스 보기 전환">
+              <button
+                type="button"
+                className={workspaceTab === 'canvas' ? 'is-active' : ''}
+                onClick={() => setWorkspaceTab('canvas')}
+              >
+                캔버스
+              </button>
+              <button
+                type="button"
+                className={workspaceTab === 'markup' ? 'is-active' : ''}
+                onClick={() => setWorkspaceTab('markup')}
+              >
+                마크업
+              </button>
+            </div>
+          )}
+
+          {workspaceTab === 'markup' && activeMarkupItem ? (
+            <div className="canvas-markup-editor">
+              <div className="canvas-markup-editor-header">
+                <strong>{activeMarkupItem.label}</strong>
+                <select
+                  value={activeMarkupItem.id}
+                  onChange={event => setActiveId(event.target.value)}
+                >
+                  {markupItems.map((item, index) => (
+                    <option key={item.id} value={item.id}>{index + 1}. {item.label}</option>
+                  ))}
+                </select>
+              </div>
+              <textarea
+                value={activeMarkupItem.html}
+                onChange={event => updateActiveMarkupHtml(event.target.value)}
+                spellCheck={false}
+              />
+            </div>
+          ) : (
+            <div className="canvas-stage">
+              <canvas
+                ref={canvasRef}
+                onMouseDown={startDrag}
+                onMouseMove={moveDrag}
+                onMouseUp={endDrag}
+                onMouseLeave={endDrag}
+                className={drag?.mode === 'resize' ? 'is-resizing' : drag ? 'is-dragging' : ''}
+              />
+            </div>
+          )}
 
           <div className="canvas-actions">
             <button type="button" onClick={downloadImage}>PNG 저장</button>
+            {markupItems.length > 0 && (
+              <button type="button" onClick={downloadMarkupHtml}>HTML 저장</button>
+            )}
             <button type="button" onClick={resetCanvas}>초기화</button>
           </div>
         </section>
