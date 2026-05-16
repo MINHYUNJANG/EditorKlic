@@ -143,6 +143,8 @@ function MarkupRenderContent({ html, isEditing, onInput, onMouseDown, onBlur }) 
 function CanvasEditorPage() {
   const canvasRef = useRef(null);
   const foregroundCanvasRef = useRef(null);
+  const markupItemRefs = useRef({});
+  const markupResizeDraftRef = useRef(null);
   const imageInputRef = useRef(null);
   const bgInputRef = useRef(null);
   const [canvasSize, setCanvasSize] = useState(DEFAULT_SIZE);
@@ -160,7 +162,7 @@ function CanvasEditorPage() {
   const [openPanel, setOpenPanel] = useState(null);
   const [workspaceTab, setWorkspaceTab] = useState('canvas');
   const [textForm, setTextForm] = useState(createInitialTextForm);
-  const [iconForm, setIconForm] = useState({ value: '', size: 64, color: '#000000', x: 400, y: 300 });
+  const [iconForm, setIconForm] = useState({ value: '', size: 64, x: 400, y: 300 });
   const [imageForm, setImageForm] = useState({ image: null, width: 200, height: 200, x: 400, y: 300 });
   const [markupForm, setMarkupForm] = useState(createInitialMarkupForm);
 
@@ -245,7 +247,7 @@ function CanvasEditorPage() {
     }
 
     if (item.type === 'icon') {
-      ctx.fillStyle = item.color;
+      ctx.fillStyle = item.color || '#111827';
       ctx.font = `${item.size}px sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -422,7 +424,6 @@ function CanvasEditorPage() {
     setIconForm({
       value: item.value,
       size: item.size,
-      color: item.color,
       x: Math.round(item.x),
       y: Math.round(item.y),
     });
@@ -509,7 +510,7 @@ function CanvasEditorPage() {
       type: 'icon',
       value: iconForm.value,
       size: Math.max(24, Number(iconForm.size) || 64),
-      color: iconForm.color,
+      color: '#111827',
       x: clamp(Number(iconForm.x) || canvasSize.width / 2, 0, canvasSize.width),
       y: clamp(Number(iconForm.y) || canvasSize.height / 2, 0, canvasSize.height),
     };
@@ -575,6 +576,7 @@ function CanvasEditorPage() {
     setActiveId(current => (current === id ? null : current));
     setDrag(current => (current?.id === id ? null : current));
     setEditingMarkupId(current => (current === id ? null : current));
+    setContextMenu(null);
   }
 
   function bringItemToFront(id) {
@@ -740,6 +742,11 @@ function CanvasEditorPage() {
     event.stopPropagation();
     const pos = getCanvasPosition(event);
     setActiveId(item.id);
+    markupResizeDraftRef.current = {
+      id: item.id,
+      width: item.width,
+      height: item.height,
+    };
     setDrag({
       mode: 'resize',
       id: item.id,
@@ -874,7 +881,12 @@ function CanvasEditorPage() {
       if (target?.type === 'markup') {
         const width = Math.max(180, Math.round((drag.startWidth || target.width) + deltaX));
         const height = Math.max(120, Math.round((drag.startHeight || target.height) + deltaY));
-        setItems(prev => prev.map(item => (item.id === drag.id ? { ...item, width, height } : item)));
+        markupResizeDraftRef.current = { id: drag.id, width, height };
+        const markupNode = markupItemRefs.current[drag.id];
+        if (markupNode) {
+          markupNode.style.width = `${(width / canvasSize.width) * 100}%`;
+          markupNode.style.height = `${(height / canvasSize.height) * 100}%`;
+        }
       }
       return;
     }
@@ -885,6 +897,15 @@ function CanvasEditorPage() {
   }
 
   function endDrag() {
+    const markupResizeDraft = markupResizeDraftRef.current;
+    if (markupResizeDraft) {
+      setItems(prev => prev.map(item => (
+        item.id === markupResizeDraft.id
+          ? { ...item, width: markupResizeDraft.width, height: markupResizeDraft.height }
+          : item
+      )));
+      markupResizeDraftRef.current = null;
+    }
     setDrag(null);
   }
 
@@ -975,7 +996,7 @@ ${body}
     setContextMenu(null);
     setDrag(null);
     setTextForm(createInitialTextForm());
-    setIconForm({ value: '', size: 64, color: '#000000', x: 400, y: 300 });
+    setIconForm({ value: '', size: 64, x: 400, y: 300 });
     setImageForm({ image: null, width: 200, height: 200, x: 400, y: 300 });
     setMarkupForm(createInitialMarkupForm());
     setWorkspaceTab('canvas');
@@ -1056,13 +1077,8 @@ ${body}
                 </div>
                 {iconForm.value && (
                   <div className="canvas-icon-settings">
-                    <div className="canvas-form-grid">
+                    <div className="canvas-icon-form-grid">
                       <label>크기<input type="number" min="24" value={iconForm.size} onChange={event => setIconForm(form => ({ ...form, size: event.target.value }))} /></label>
-                      <label className="canvas-color-picker">
-                        색
-                        <span style={{ backgroundColor: iconForm.color }} />
-                        <input type="color" value={iconForm.color} onChange={event => setIconForm(form => ({ ...form, color: event.target.value }))} />
-                      </label>
                       <label>X<input type="number" min="0" value={iconForm.x} onChange={event => setIconForm(form => ({ ...form, x: event.target.value }))} /></label>
                       <label>Y<input type="number" min="0" value={iconForm.y} onChange={event => setIconForm(form => ({ ...form, y: event.target.value }))} /></label>
                     </div>
@@ -1232,6 +1248,10 @@ ${body}
                   {markupItems.map(item => (
                     <div
                       key={item.id}
+                      ref={node => {
+                        if (node) markupItemRefs.current[item.id] = node;
+                        else delete markupItemRefs.current[item.id];
+                      }}
                       className={`canvas-markup-render-item ${item.id === activeId ? 'is-active' : ''} ${editingMarkupId === item.id ? 'is-editing' : ''}`}
                       style={getMarkupItemStyle(item)}
                       onMouseDown={event => startMarkupDrag(event, item)}
@@ -1286,6 +1306,9 @@ ${body}
                     </button>
                     <button type="button" onClick={() => sendItemToBack(contextMenuItem.id)}>
                       맨 뒤로 보내기
+                    </button>
+                    <button type="button" onClick={() => deleteItemById(contextMenuItem.id)}>
+                      삭제
                     </button>
                     <button type="button" onClick={() => downloadItemAsImage(contextMenuItem.id)}>
                       선택 요소 PNG 저장
