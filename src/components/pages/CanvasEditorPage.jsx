@@ -988,7 +988,7 @@ ${body}
       <div className="canvas-editor-header">
         <h2 className="crawl-title">KL캔버스</h2>
         <p className="crawl-desc">
-          교사와 교직원이 팝업, 비주얼, 가정통신문, 공지 등에 필요한 이미지를 손쉽게 만들 수 있도록 돕는 제작 도구입니다.
+          교사와 교직원이 팝업, 비주얼, 가정통신문, 공지 등에 필요한 이미지와 마크업을 손쉽게 만들 수 있도록 돕는 제작 도구입니다.
         </p>
       </div>
 
