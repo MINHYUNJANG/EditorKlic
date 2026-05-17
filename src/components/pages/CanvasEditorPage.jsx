@@ -92,6 +92,19 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+function normalizeHexColor(value) {
+  const text = String(value || '').trim();
+  const match = text.match(/^#?([0-9a-f]{6})$/i);
+  if (!match) return null;
+  const hex = match[1];
+  return `#${hex.toLowerCase()}`;
+}
+
+function sanitizeHexColorInput(value) {
+  const hex = String(value || '').replace(/[^0-9a-f]/gi, '').slice(0, 6).toLowerCase();
+  return `#${hex}`;
+}
+
 function getFont(item) {
   const style = item.italic ? 'italic' : 'normal';
   const weight = item.bold ? '700' : '400';
@@ -169,6 +182,7 @@ function CanvasEditorPage() {
     height: String(DEFAULT_SIZE.height),
   });
   const [bgColor, setBgColor] = useState('#ffffff');
+  const [bgColorInput, setBgColorInput] = useState('#ffffff');
   const [bgImage, setBgImage] = useState(null);
   const [items, setItems] = useState([]);
   const [activeId, setActiveId] = useState(null);
@@ -182,6 +196,7 @@ function CanvasEditorPage() {
   const [workspaceTab, setWorkspaceTab] = useState('canvas');
   const [templateCategory, setTemplateCategory] = useState('all');
   const [textForm, setTextForm] = useState(createInitialTextForm);
+  const [textColorInput, setTextColorInput] = useState('#000000');
   const [iconForm, setIconForm] = useState({ value: '', size: 64, x: 400, y: 300 });
   const [imageForm, setImageForm] = useState({ image: null, width: 200, height: 200, x: 400, y: 300 });
   const [markupForm, setMarkupForm] = useState(createInitialMarkupForm);
@@ -398,6 +413,54 @@ function CanvasEditorPage() {
     setImageForm(form => ({ ...form, x, y }));
   }
 
+  function updateBgColor(color) {
+    setBgColor(color);
+    setBgColorInput(color);
+    setBgImage(null);
+  }
+
+  function updateBgColorFromHex(value) {
+    const nextValue = sanitizeHexColorInput(value);
+    setBgColorInput(nextValue);
+    const color = normalizeHexColor(nextValue);
+    if (color) {
+      setBgColor(color);
+      setBgImage(null);
+    }
+  }
+
+  function commitBgColorInput() {
+    const color = normalizeHexColor(bgColorInput);
+    if (color) {
+      updateBgColor(color);
+      return;
+    }
+    setBgColorInput(bgColor);
+  }
+
+  function updateTextColor(color) {
+    setTextColorInput(color);
+    updateActiveText({ color });
+  }
+
+  function updateTextColorFromHex(value) {
+    const nextValue = sanitizeHexColorInput(value);
+    setTextColorInput(nextValue);
+    const color = normalizeHexColor(nextValue);
+    if (color) {
+      updateActiveText({ color });
+    }
+  }
+
+  function commitTextColorInput() {
+    const color = normalizeHexColor(textColorInput);
+    if (color) {
+      updateTextColor(color);
+      return;
+    }
+    setTextColorInput(textForm.color);
+  }
+
   function handleCanvasSizeChange(field, value) {
     setCanvasSizeForm(form => ({ ...form, [field]: value }));
     if (value === '') return;
@@ -448,6 +511,7 @@ function CanvasEditorPage() {
 
   function syncTextForm(item) {
     if (item?.type !== 'text') return;
+    setTextColorInput(item.color);
     setTextForm({
       value: item.value,
       font: item.font || 'Pretendard',
@@ -510,7 +574,7 @@ function CanvasEditorPage() {
       item.id === activeId
         ? {
           ...item,
-          value: nextForm.value.trim() || '텍스트',
+          value: nextForm.value.trim() ? nextForm.value : '텍스트',
           font: nextForm.font,
           bold: nextForm.bold,
           italic: nextForm.italic,
@@ -549,7 +613,7 @@ function CanvasEditorPage() {
     const item = {
       id: crypto.randomUUID(),
       type: 'text',
-      value: textForm.value.trim() || '텍스트',
+      value: textForm.value.trim() ? textForm.value : '텍스트',
       font: textForm.font,
       bold: textForm.bold,
       italic: textForm.italic,
@@ -724,8 +788,7 @@ function CanvasEditorPage() {
     setItems(nextItems);
     setCanvasSize(nextCanvasSize);
     setCanvasSizeForm({ width: String(nextCanvasSize.width), height: String(nextCanvasSize.height) });
-    setBgColor(template.bgColor || '#ffffff');
-    setBgImage(null);
+    updateBgColor(template.bgColor || '#ffffff');
     setActiveId(nextItems.find(item => item.type === 'markup')?.id || nextItems[0]?.id || null);
     setWorkspaceTab('canvas');
     setOpenPanel(null);
@@ -1282,8 +1345,7 @@ ${body}
       width: String(DEFAULT_SIZE.width),
       height: String(DEFAULT_SIZE.height),
     });
-    setBgColor('#ffffff');
-    setBgImage(null);
+    updateBgColor('#ffffff');
     setItems([]);
     setActiveId(null);
     setEditingTextId(null);
@@ -1293,6 +1355,7 @@ ${body}
     setContextMenu(null);
     setDrag(null);
     setTextForm(createInitialTextForm());
+    setTextColorInput('#000000');
     setIconForm({ value: '', size: 64, x: 400, y: 300 });
     setImageForm({ image: null, width: 200, height: 200, x: 400, y: 300 });
     setMarkupForm(createInitialMarkupForm());
@@ -1341,8 +1404,21 @@ ${body}
                   <label>크기<input type="number" min="12" value={textForm.size} onChange={event => updateActiveText({ size: event.target.value })} /></label>
                   <label className="canvas-color-picker">
                     색
-                    <span style={{ backgroundColor: textForm.color }} />
-                    <input type="color" value={textForm.color} onChange={event => updateActiveText({ color: event.target.value })} />
+                    <span className="canvas-color-control">
+                      <span className="canvas-color-swatch" style={{ backgroundColor: textForm.color }} />
+                      <input type="color" value={textForm.color} onChange={event => updateTextColor(event.target.value)} />
+                      <input
+                        className="canvas-color-hex-input"
+                        type="text"
+                        maxLength={7}
+                        inputMode="text"
+                        pattern="#[0-9a-fA-F]{6}"
+                        value={textColorInput}
+                        onChange={event => updateTextColorFromHex(event.target.value)}
+                        onBlur={commitTextColorInput}
+                        spellCheck={false}
+                      />
+                    </span>
                   </label>
                   <label>X<input type="number" min="0" value={textForm.x} onChange={event => updateActiveText({ x: event.target.value })} /></label>
                   <label>Y<input type="number" min="0" value={textForm.y} onChange={event => updateActiveText({ y: event.target.value })} /></label>
@@ -1525,8 +1601,21 @@ ${body}
             </label>
             <label className="canvas-color-picker">
               배경색
-              <span style={{ backgroundColor: bgColor }} />
-              <input type="color" value={bgColor} onChange={event => { setBgColor(event.target.value); setBgImage(null); }} />
+              <span className="canvas-color-control">
+                <span className="canvas-color-swatch" style={{ backgroundColor: bgColor }} />
+                <input type="color" value={bgColor} onChange={event => updateBgColor(event.target.value)} />
+                <input
+                  className="canvas-color-hex-input"
+                  type="text"
+                  maxLength={7}
+                  inputMode="text"
+                  pattern="#[0-9a-fA-F]{6}"
+                  value={bgColorInput}
+                  onChange={event => updateBgColorFromHex(event.target.value)}
+                  onBlur={commitBgColorInput}
+                  spellCheck={false}
+                />
+              </span>
             </label>
             <label>
               배경 이미지
