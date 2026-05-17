@@ -26,7 +26,7 @@ const menuCards = [
   },
   {
     label: '웹접근성검사',
-    iconSrc: '/icons/dazzle/audio-description.svg',
+    iconSrc: '/icons/dazzle/accessibility.svg',
     desc: '웹 페이지의 웹 접근성 준수 여부를 자동으로 검사합니다. WCAG 및 KWCAG 기준에 따라 항목별 결과와 증적 자료를 자동으로 생성합니다.',
   },
 ];
