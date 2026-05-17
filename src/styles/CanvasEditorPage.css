@@ -818,6 +818,21 @@
   pointer-events: none;
 }
 
+.canvas-text-editor {
+  position: absolute;
+  z-index: 4;
+  box-sizing: border-box;
+  padding: 0 0.5rem;
+  border: 0.125rem solid #0070c8;
+  background: rgba(255, 255, 255, 0.9);
+  outline: none;
+  line-height: 1.2;
+}
+
+.canvas-hidden-file-input {
+  display: none;
+}
+
 .canvas-markup-layer {
   position: absolute;
   inset: 0;

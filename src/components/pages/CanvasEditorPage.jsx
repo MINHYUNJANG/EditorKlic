@@ -157,9 +157,11 @@ function MarkupRenderContent({ html, isEditing, onInput, onMouseDown, onBlur }) 
 function CanvasEditorPage() {
   const canvasRef = useRef(null);
   const foregroundCanvasRef = useRef(null);
+  const textEditInputRef = useRef(null);
   const markupItemRefs = useRef({});
   const markupResizeDraftRef = useRef(null);
   const imageInputRef = useRef(null);
+  const replaceImageInputRef = useRef(null);
   const bgInputRef = useRef(null);
   const [canvasSize, setCanvasSize] = useState(DEFAULT_SIZE);
   const [canvasSizeForm, setCanvasSizeForm] = useState({
@@ -171,7 +173,10 @@ function CanvasEditorPage() {
   const [items, setItems] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [drag, setDrag] = useState(null);
+  const [editingTextId, setEditingTextId] = useState(null);
+  const [textEditStyle, setTextEditStyle] = useState(null);
   const [editingMarkupId, setEditingMarkupId] = useState(null);
+  const [replaceImageId, setReplaceImageId] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [openPanel, setOpenPanel] = useState(null);
   const [workspaceTab, setWorkspaceTab] = useState('canvas');
@@ -182,6 +187,7 @@ function CanvasEditorPage() {
   const [markupForm, setMarkupForm] = useState(createInitialMarkupForm);
 
   const activeItem = items.find(item => item.id === activeId);
+  const editingTextItem = editingTextId ? items.find(item => item.id === editingTextId && item.type === 'text') : null;
   const markupItems = items.filter(item => item.type === 'markup');
   const activeMarkupItem = activeItem?.type === 'markup' ? activeItem : markupItems[0];
   const contextMenuItem = contextMenu ? items.find(item => item.id === contextMenu.itemId) : null;
@@ -306,6 +312,7 @@ function CanvasEditorPage() {
     const lastMarkupIndex = items.reduce((lastIndex, item, index) => (item.type === 'markup' ? index : lastIndex), -1);
 
     items.forEach((item, index) => {
+      if (item.id === editingTextId) return;
       const isForegroundItem = foregroundCtx && item.type !== 'markup' && lastMarkupIndex >= 0 && index > lastMarkupIndex;
       const targetCtx = isForegroundItem ? foregroundCtx : ctx;
       drawCanvasItem(targetCtx, item);
@@ -349,11 +356,18 @@ function CanvasEditorPage() {
     });
   }
 
-  useEffect(drawCanvas, [canvasSize, bgColor, bgImage, items, activeId, workspaceTab]);
+  useEffect(drawCanvas, [canvasSize, bgColor, bgImage, items, activeId, workspaceTab, editingTextId]);
 
   useEffect(() => {
     if (document.fonts?.ready) document.fonts.ready.then(drawCanvas);
   }, []);
+
+  useEffect(() => {
+    const input = textEditInputRef.current;
+    if (!input || !editingTextItem) return;
+    input.focus();
+    input.select();
+  }, [editingTextItem?.id]);
 
   useEffect(() => {
     function closeContextMenu() {
@@ -510,6 +524,27 @@ function CanvasEditorPage() {
     )));
   }
 
+  function updateTextValueById(id, value) {
+    const target = items.find(item => item.id === id);
+    setItems(prev => prev.map(item => (
+      item.id === id ? { ...item, value } : item
+    )));
+    if (target?.type === 'text' && editingTextId === id) {
+      setTextEditStyle(getTextEditStyle({ ...target, value }));
+    }
+    if (activeId === id) {
+      setTextForm(form => ({ ...form, value }));
+    }
+  }
+
+  function finishTextEdit(id, value) {
+    if (value.trim() === '') {
+      updateTextValueById(id, 'Text');
+    }
+    setEditingTextId(null);
+    setTextEditStyle(null);
+  }
+
   function addText() {
     const item = {
       id: crypto.randomUUID(),
@@ -562,6 +597,50 @@ function CanvasEditorPage() {
     };
     setItems(prev => [...prev, item]);
     setActiveId(item.id);
+  }
+
+  function openReplaceImagePicker(id) {
+    const target = items.find(item => item.id === id);
+    if (target?.type !== 'image') return;
+    setReplaceImageId(id);
+    setContextMenu(null);
+    if (replaceImageInputRef.current) {
+      replaceImageInputRef.current.value = '';
+      replaceImageInputRef.current.click();
+    }
+  }
+
+  function replaceImageById(id, image) {
+    const target = items.find(item => item.id === id);
+    if (target?.type !== 'image') return;
+    setItems(prev => prev.map(item => (
+      item.id === id ? { ...item, image, imageSrc: undefined } : item
+    )));
+    if (activeId === id) {
+      setImageForm(form => ({
+        ...form,
+        image,
+        width: Math.round(target.width),
+        height: Math.round(target.height),
+        x: Math.round(target.x),
+        y: Math.round(target.y),
+      }));
+    }
+    setReplaceImageId(null);
+  }
+
+  function handleReplaceImageChange(event) {
+    const file = event.currentTarget.files?.[0];
+    const id = replaceImageId;
+    if (!file || !id) {
+      setReplaceImageId(null);
+      return;
+    }
+    const input = event.currentTarget;
+    loadImageFile(file, image => {
+      replaceImageById(id, image);
+      input.value = '';
+    });
   }
 
   function addMarkup(template) {
@@ -673,6 +752,9 @@ function CanvasEditorPage() {
     setItems(prev => prev.filter(item => item.id !== id));
     setActiveId(current => (current === id ? null : current));
     setDrag(current => (current?.id === id ? null : current));
+    setEditingTextId(current => (current === id ? null : current));
+    if (editingTextId === id) setTextEditStyle(null);
+    setReplaceImageId(current => (current === id ? null : current));
     setEditingMarkupId(current => (current === id ? null : current));
     setContextMenu(null);
   }
@@ -756,6 +838,39 @@ function CanvasEditorPage() {
     openContextMenu(event, item);
   }
 
+  function getTextEditStyle(item) {
+    const canvas = canvasRef.current;
+    if (!canvas) return {};
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = rect.width / canvasSize.width;
+    const scaleY = rect.height / canvasSize.height;
+    const ctx = canvas.getContext('2d');
+    const bounds = measureItem(ctx, item);
+    return {
+      left: `${bounds.x * scaleX}px`,
+      top: `${bounds.y * scaleY}px`,
+      width: `${bounds.width * scaleX}px`,
+      height: `${bounds.height * scaleY}px`,
+      font: getFont({ ...item, size: item.size * scaleY }),
+      color: item.color,
+      textAlign: item.align || 'center',
+      textDecoration: item.underline ? 'underline' : 'none',
+    };
+  }
+
+  function startTextEdit(event) {
+    const item = getItemAtClientPosition(event.clientX, event.clientY);
+    if (item?.type !== 'text') return;
+    event.preventDefault();
+    event.stopPropagation();
+    setDrag(null);
+    setActiveId(item.id);
+    syncFormFromItem(item);
+    setEditingMarkupId(null);
+    setTextEditStyle(getTextEditStyle(item));
+    setEditingTextId(item.id);
+  }
+
   function getActiveResizeItemAtPosition(x, y) {
     if (!activeItem || !['icon', 'image', 'markup'].includes(activeItem.type)) return null;
     const canvas = canvasRef.current;
@@ -801,10 +916,14 @@ function CanvasEditorPage() {
     const item = getItemAtPosition(pos.x, pos.y);
     if (!item) {
       setActiveId(null);
+      setEditingTextId(null);
+      setTextEditStyle(null);
       setEditingMarkupId(null);
       return;
     }
     setActiveId(item.id);
+    setEditingTextId(null);
+    setTextEditStyle(null);
     if (item.type !== 'markup') setEditingMarkupId(null);
     syncFormFromItem(item);
     setDrag({ mode: 'move', id: item.id, offsetX: pos.x - item.x, offsetY: pos.y - item.y });
@@ -1167,6 +1286,9 @@ ${body}
     setBgImage(null);
     setItems([]);
     setActiveId(null);
+    setEditingTextId(null);
+    setTextEditStyle(null);
+    setReplaceImageId(null);
     setEditingMarkupId(null);
     setContextMenu(null);
     setDrag(null);
@@ -1456,6 +1578,7 @@ ${body}
                 <canvas
                   ref={canvasRef}
                   onMouseDown={startDrag}
+                  onDoubleClick={startTextEdit}
                   onMouseMove={moveDrag}
                   onMouseUp={endDrag}
                   onMouseLeave={endDrag}
@@ -1466,6 +1589,31 @@ ${body}
                   className="canvas-foreground"
                   aria-hidden="true"
                 />
+                <input
+                  ref={replaceImageInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="canvas-hidden-file-input"
+                  onChange={handleReplaceImageChange}
+                />
+                {editingTextItem && (
+                  <input
+                    ref={textEditInputRef}
+                    className="canvas-text-editor"
+                    value={editingTextItem.value}
+                    style={textEditStyle || undefined}
+                    onChange={event => updateTextValueById(editingTextItem.id, event.target.value)}
+                    onMouseDown={event => event.stopPropagation()}
+                    onDoubleClick={event => event.stopPropagation()}
+                    onBlur={event => finishTextEdit(editingTextItem.id, event.currentTarget.value)}
+                    onKeyDown={event => {
+                      if (event.key === 'Enter' || event.key === 'Escape') {
+                        event.preventDefault();
+                        event.currentTarget.blur();
+                      }
+                    }}
+                  />
+                )}
                 <div className="canvas-markup-layer" onMouseMove={moveDrag} onMouseUp={endDrag} onMouseLeave={endDrag}>
                   {markupItems.map(item => (
                     <div
@@ -1529,6 +1677,11 @@ ${body}
                     <button type="button" onClick={() => sendItemToBack(contextMenuItem.id)}>
                       맨 뒤로 보내기
                     </button>
+                    {contextMenuItem.type === 'image' && (
+                      <button type="button" onClick={() => openReplaceImagePicker(contextMenuItem.id)}>
+                        이미지 변경
+                      </button>
+                    )}
                     <button type="button" onClick={() => deleteItemById(contextMenuItem.id)}>
                       삭제
                     </button>
