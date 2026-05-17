@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import CANVAS_TEMPLATES from '../../templates/canvas';
 
 const DEFAULT_SIZE = { width: 800, height: 600 };
 const RESIZE_HANDLE_SIZE = 12;
@@ -20,6 +21,14 @@ const MARKUP_CATEGORIES = [
   { value: 'table', label: '테이블' },
   { value: 'process', label: '절차' },
   { value: 'box', label: '박스' },
+];
+const CANVAS_TEMPLATE_CATEGORIES = [
+  { value: 'all', label: '전체' },
+  { value: 'newsletter', label: '가정통신문' },
+  { value: 'visual', label: '비주얼' },
+  { value: 'popup', label: '팝업' },
+  { value: 'banner', label: '배너' },
+  { value: 'document', label: '문서' },
 ];
 const MARKUP_TEMPLATES = {
   list: [
@@ -79,7 +88,6 @@ const MARKUP_TEMPLATES = {
     },
   ],
 };
-
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
@@ -89,6 +97,12 @@ function getFont(item) {
   const weight = item.bold ? '700' : '400';
   const family = ['serif', 'monospace'].includes(item.font) ? item.font : `"${item.font || 'Pretendard'}", sans-serif`;
   return `${style} ${weight} ${item.size}px ${family}`;
+}
+
+function getTextBoundsX(item, width) {
+  if (item.align === 'left') return item.x;
+  if (item.align === 'right') return item.x - width;
+  return item.x - width / 2;
 }
 
 function createInitialMarkupForm() {
@@ -161,6 +175,7 @@ function CanvasEditorPage() {
   const [contextMenu, setContextMenu] = useState(null);
   const [openPanel, setOpenPanel] = useState(null);
   const [workspaceTab, setWorkspaceTab] = useState('canvas');
+  const [templateCategory, setTemplateCategory] = useState('all');
   const [textForm, setTextForm] = useState(createInitialTextForm);
   const [iconForm, setIconForm] = useState({ value: '', size: 64, x: 400, y: 300 });
   const [imageForm, setImageForm] = useState({ image: null, width: 200, height: 200, x: 400, y: 300 });
@@ -171,6 +186,9 @@ function CanvasEditorPage() {
   const activeMarkupItem = activeItem?.type === 'markup' ? activeItem : markupItems[0];
   const contextMenuItem = contextMenu ? items.find(item => item.id === contextMenu.itemId) : null;
   const selectedMarkupTemplates = MARKUP_TEMPLATES[markupForm.category] || [];
+  const selectedCanvasTemplates = templateCategory === 'all'
+    ? CANVAS_TEMPLATES
+    : CANVAS_TEMPLATES.filter(template => (template.category || 'document') === templateCategory);
 
   function togglePanel(panel) {
     setOpenPanel(current => (current === panel ? null : panel));
@@ -218,7 +236,7 @@ function CanvasEditorPage() {
     const width = measure.width + 16;
     const height = item.size + 16;
     return {
-      x: item.x - width / 2,
+      x: item.type === 'text' ? getTextBoundsX(item, width) : item.x - width / 2,
       y: item.y - height / 2,
       width,
       height,
@@ -227,10 +245,11 @@ function CanvasEditorPage() {
 
   function drawUnderline(ctx, item) {
     const width = ctx.measureText(item.value).width;
+    const x = getTextBoundsX(item, width);
     const y = item.y + item.size * 0.35;
     ctx.beginPath();
-    ctx.moveTo(item.x - width / 2, y);
-    ctx.lineTo(item.x + width / 2, y);
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + width, y);
     ctx.lineWidth = Math.max(1, item.size / 18);
     ctx.strokeStyle = item.color;
     ctx.stroke();
@@ -240,7 +259,7 @@ function CanvasEditorPage() {
     if (item.type === 'text') {
       ctx.fillStyle = item.color;
       ctx.font = getFont(item);
-      ctx.textAlign = 'center';
+      ctx.textAlign = item.align || 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(item.value, item.x, item.y);
       if (item.underline) drawUnderline(ctx, item);
@@ -404,6 +423,15 @@ function CanvasEditorPage() {
     reader.readAsDataURL(file);
   }
 
+  function loadImageSrc(src) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = reject;
+      image.src = src;
+    });
+  }
+
   function syncTextForm(item) {
     if (item?.type !== 'text') return;
     setTextForm({
@@ -552,6 +580,76 @@ function CanvasEditorPage() {
     setItems(prev => [...prev, item]);
     setActiveId(item.id);
     setWorkspaceTab('canvas');
+  }
+
+  async function addCanvasTemplate(template) {
+    const nextCanvasSize = template.canvasSize || canvasSize;
+    const centerX = nextCanvasSize.width / 2;
+    const centerY = nextCanvasSize.height / 2;
+    const templateItems = template.items || [
+      {
+        type: 'markup',
+        category: template.markup.category,
+        label: template.markup.label,
+        html: template.markup.html,
+        width: template.markup.width,
+        height: template.markup.height,
+        x: centerX,
+        y: centerY + 35,
+      },
+      {
+        type: 'text',
+        value: template.text.value,
+        font: 'Pretendard',
+        bold: true,
+        italic: false,
+        underline: false,
+        size: template.text.size,
+        color: template.text.color,
+        x: centerX,
+        y: clamp(centerY + template.text.yOffset, 0, nextCanvasSize.height),
+      },
+      {
+        type: 'icon',
+        value: template.icon,
+        size: 56,
+        color: '#111827',
+        x: clamp(centerX - 210, 0, nextCanvasSize.width),
+        y: clamp(centerY - 155, 0, nextCanvasSize.height),
+      },
+      ...(template.imageSrc ? [{
+        type: 'image',
+        imageSrc: template.imageSrc,
+        width: 120,
+        height: 36,
+        x: clamp(centerX + 210, 0, nextCanvasSize.width),
+        y: clamp(centerY - 155, 0, nextCanvasSize.height),
+      }] : []),
+    ];
+
+    const nextItems = [];
+    for (const item of templateItems) {
+      if (item.type === 'image') {
+        try {
+          const image = await loadImageSrc(item.imageSrc);
+          nextItems.push({ ...item, id: crypto.randomUUID(), image });
+        } catch {
+          alert('템플릿 이미지를 불러오지 못했습니다.');
+          return;
+        }
+      } else {
+        nextItems.push({ ...item, id: crypto.randomUUID(), templateId: template.id });
+      }
+    }
+
+    setItems(nextItems);
+    setCanvasSize(nextCanvasSize);
+    setCanvasSizeForm({ width: String(nextCanvasSize.width), height: String(nextCanvasSize.height) });
+    setBgColor(template.bgColor || '#ffffff');
+    setBgImage(null);
+    setActiveId(nextItems.find(item => item.type === 'markup')?.id || nextItems[0]?.id || null);
+    setWorkspaceTab('canvas');
+    setOpenPanel(null);
   }
 
   function updateActiveMarkupHtml(html) {
@@ -801,26 +899,41 @@ function CanvasEditorPage() {
     });
   }
 
-  async function downloadMarkupItemAsImage(item) {
+  function getMarkupExportSize(item) {
+    const node = markupItemRefs.current[item.id]?.querySelector('.canvas-markup-content');
+    const contentHeight = node ? Math.ceil(node.scrollHeight) : item.height;
+    const contentWidth = node ? Math.ceil(node.scrollWidth) : item.width;
+    return {
+      width: Math.max(item.width, contentWidth),
+      height: Math.max(item.height, contentHeight),
+    };
+  }
+
+  async function renderMarkupItemToImage(item, exportSize = getMarkupExportSize(item)) {
     const css = await fetch('/markup_com.css').then(response => response.text());
     const wrapper = document.createElement('div');
     wrapper.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
     wrapper.setAttribute('class', 'markup-render');
-    wrapper.setAttribute('style', `width:${item.width}px;height:${item.height}px;padding:12px;box-sizing:border-box;overflow:hidden;background:transparent;`);
+    wrapper.setAttribute('style', `width:${exportSize.width}px;min-height:${exportSize.height}px;padding:12px;box-sizing:border-box;overflow:visible;background:transparent;`);
     wrapper.innerHTML = item.html;
     const content = new XMLSerializer().serializeToString(wrapper);
     const svg = `
-<svg xmlns="http://www.w3.org/2000/svg" width="${item.width}" height="${item.height}">
+<svg xmlns="http://www.w3.org/2000/svg" width="${exportSize.width}" height="${exportSize.height}">
   <foreignObject width="100%" height="100%">
     <style xmlns="http://www.w3.org/1999/xhtml"><![CDATA[${css}]]></style>
     ${content}
   </foreignObject>
 </svg>`;
     const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-    const image = await loadImageFromDataUrl(dataUrl);
+    return loadImageFromDataUrl(dataUrl);
+  }
+
+  async function downloadMarkupItemAsImage(item) {
+    const exportSize = getMarkupExportSize(item);
+    const image = await renderMarkupItemToImage(item, exportSize);
     const exportCanvas = document.createElement('canvas');
-    exportCanvas.width = item.width;
-    exportCanvas.height = item.height;
+    exportCanvas.width = exportSize.width;
+    exportCanvas.height = exportSize.height;
     exportCanvas.getContext('2d').drawImage(image, 0, 0);
     downloadDataUrl(exportCanvas.toDataURL('image/png'), getItemFilename(item));
   }
@@ -941,18 +1054,80 @@ function CanvasEditorPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeItem, canvasSize.width, canvasSize.height, items]);
 
-  function downloadImage() {
+  async function buildCanvasExportDataUrl() {
     const canvas = canvasRef.current;
     if (!canvas) {
-      alert('캔버스 탭에서 PNG 저장을 진행해주세요.');
-      return;
+      throw new Error('캔버스 탭에서 저장을 진행해주세요.');
     }
+
     drawCanvas({ showSelection: false });
-    const link = document.createElement('a');
-    link.href = canvas.toDataURL('image/png');
-    link.download = 'klic-canvas.png';
-    link.click();
-    requestAnimationFrame(() => drawCanvas());
+    const markupExports = [];
+    for (const item of items) {
+      if (item.type !== 'markup') continue;
+      const exportSize = getMarkupExportSize(item);
+      const image = await renderMarkupItemToImage(item, exportSize);
+      markupExports.push({ item, image, exportSize });
+    }
+
+    const exportWidth = Math.max(
+      canvasSize.width,
+      ...markupExports.map(({ item, exportSize }) => Math.ceil(item.x - item.width / 2 + exportSize.width))
+    );
+    const exportHeight = Math.max(
+      canvasSize.height,
+      ...markupExports.map(({ item, exportSize }) => Math.ceil(item.y - item.height / 2 + exportSize.height))
+    );
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = exportWidth;
+    exportCanvas.height = exportHeight;
+    const exportCtx = exportCanvas.getContext('2d');
+    exportCtx.fillStyle = bgColor;
+    exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+    exportCtx.drawImage(canvas, 0, 0);
+
+    for (const { item, image, exportSize } of markupExports) {
+      exportCtx.drawImage(image, item.x - item.width / 2, item.y - item.height / 2, exportSize.width, exportSize.height);
+    }
+
+    return exportCanvas.toDataURL('image/png');
+  }
+
+  async function downloadImage() {
+    try {
+      const dataUrl = await buildCanvasExportDataUrl();
+      downloadDataUrl(dataUrl, 'klic-canvas.png');
+    } catch (error) {
+      alert('PNG 저장 중 오류가 발생했습니다. 다시 시도해 주세요.');
+    } finally {
+      requestAnimationFrame(() => drawCanvas());
+    }
+  }
+
+  async function downloadCanvasHwpx() {
+    try {
+      const dataUrl = await buildCanvasExportDataUrl();
+      const response = await fetch('/api/download-canvas-hwpx', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: dataUrl }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || 'HWPX 저장에 실패했습니다.');
+      }
+      const blob = await response.blob();
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'klic-canvas.hwpx';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    } catch (error) {
+      alert(`HWPX 저장 중 오류가 발생했습니다. ${error.message}`);
+    } finally {
+      requestAnimationFrame(() => drawCanvas());
+    }
   }
 
   function downloadMarkupHtml() {
@@ -999,6 +1174,7 @@ ${body}
     setIconForm({ value: '', size: 64, x: 400, y: 300 });
     setImageForm({ image: null, width: 200, height: 200, x: 400, y: 300 });
     setMarkupForm(createInitialMarkupForm());
+    setTemplateCategory('all');
     setWorkspaceTab('canvas');
     if (bgInputRef.current) bgInputRef.current.value = '';
     if (imageInputRef.current) imageInputRef.current.value = '';
@@ -1123,7 +1299,7 @@ ${body}
             </button>
             {openPanel === 'markup' && (
               <div className="canvas-panel-body">
-                <label>
+                <label className="canvas-template-category">
                   유형
                   <select
                     value={markupForm.category}
@@ -1152,6 +1328,52 @@ ${body}
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+          </section>
+
+          <section className={`canvas-panel ${openPanel === 'template' ? 'is-open' : ''}`}>
+            <button type="button" className="canvas-panel-toggle" onClick={() => togglePanel('template')} aria-expanded={openPanel === 'template'}>
+              <span>템플릿</span>
+              <span aria-hidden="true">{openPanel === 'template' ? '−' : '+'}</span>
+            </button>
+            {openPanel === 'template' && (
+              <div className="canvas-panel-body">
+                <label>
+                  유형
+                  <select
+                    value={templateCategory}
+                    onChange={event => setTemplateCategory(event.target.value)}
+                  >
+                    {CANVAS_TEMPLATE_CATEGORIES.map(category => (
+                      <option key={category.value} value={category.value}>{category.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <div className="canvas-template-grid" aria-label="캔버스 템플릿 선택">
+                  {selectedCanvasTemplates.map(template => (
+                    <button
+                      key={template.id}
+                      type="button"
+                      onClick={() => addCanvasTemplate(template)}
+                      aria-label={template.label}
+                    >
+                      <span className="canvas-template-thumb" aria-hidden="true">
+                        {template.thumbnailSrc ? (
+                          <img src={template.thumbnailSrc} alt="" />
+                        ) : (
+                          <span className="canvas-template-placeholder">
+                            <em>no image</em>
+                            <b>X</b>
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {selectedCanvasTemplates.length === 0 && (
+                  <p className="canvas-template-empty">선택한 유형의 템플릿이 없습니다.</p>
+                )}
               </div>
             )}
           </section>
@@ -1321,6 +1543,7 @@ ${body}
 
           <div className="canvas-actions">
             <button type="button" onClick={downloadImage}>PNG 저장</button>
+            <button type="button" onClick={downloadCanvasHwpx}>HWPX 저장</button>
             {markupItems.length > 0 && (
               <button type="button" onClick={downloadMarkupHtml}>HTML 저장</button>
             )}
